@@ -58,3 +58,35 @@ export const registerTechnician = async (data: TechRegisterData) => {
 export const loginUser = async (data: LoginData) => {
   return await api.post("/login", data);
 };
+
+// === NOVAS FUNÇÕES PARA TÉCNICOS ===
+
+// Buscar tickets disponíveis para técnicos (atribuídos + não atribuídos)
+export const getTechTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get("/tech/tickets");
+};
+
+// Buscar apenas tickets atribuídos ao técnico
+export const getAssignedTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get("/tech/tickets/assigned");
+};
+
+// Buscar apenas tickets disponíveis para pegar
+export const getAvailableTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get("/tech/tickets/available");
+};
+
+// Pegar um ticket não atribuído
+export const takeTicket = async (token: string, ticketId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/tech/tickets/${ticketId}/take`);
+};
+
+// Atualizar status do ticket
+export const updateTicketStatus = async (token: string, ticketId: number, status: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put(`/tech/tickets/${ticketId}/status`, { status });
+};

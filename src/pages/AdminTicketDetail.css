@@ -1,0 +1,533 @@
+/* Layout principal */
+.admin-ticket-detail {
+  display: flex;
+  height: 100vh;
+  background: white;
+}
+
+/* Sidebar (reutilizando estilos do AdminDashboard) */
+.admin-sidebar {
+  width: 280px;
+  background: #1f2937;
+  display: flex;
+  flex-direction: column;
+  color: white;
+}
+
+.sidebar-header {
+  padding: 2rem 1.5rem;
+  border-bottom: 1px solid #374151;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.brand-role {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Navegação */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+}
+
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #d1d5db;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: #374151;
+  color: white;
+}
+
+.nav-icon {
+  font-size: 1.125rem;
+  width: 20px;
+  text-align: center;
+}
+
+.nav-text {
+  font-weight: 500;
+}
+
+/* Footer da sidebar */
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #374151;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  background: #3b82f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: white;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+}
+
+.user-email {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Main Content */
+.admin-main {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: white;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ticket-detail-container {
+  max-width: none;
+  margin: 0;
+  width: 100%;
+}
+
+/* Header da página */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #3b82f6;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.back-btn:hover {
+  color: #2563eb;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.status-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.status-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-btn.em-atendimento {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-btn.em-atendimento:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+.status-btn.encerrado {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.status-btn.encerrado:hover:not(:disabled) {
+  background: #dcfce7;
+}
+
+.status-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Seleção de Técnico */
+.technician-selection {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.technician-selection label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.technician-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+}
+
+.technician-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Card Principal do Chamado */
+.ticket-card {
+  background: white;
+  border: 2px dashed #3b82f6;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ticket-id {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.ticket-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ticket-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.ticket-description h3,
+.ticket-category h3,
+.ticket-client h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-description p {
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.category-badge {
+  display: inline-block;
+  background: #f3f4f6;
+  color: #374151;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ticket-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.date-item {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.ticket-client .user-info {
+  align-items: center;
+}
+
+.ticket-client .user-details {
+  gap: 0.25rem;
+}
+
+.ticket-client .user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ticket-client .user-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Card do Técnico */
+.technician-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.technician-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.technician-card .user-info {
+  align-items: center;
+}
+
+.technician-card .user-details {
+  gap: 0.25rem;
+}
+
+.technician-card .user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.technician-card .user-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-badge.aberto {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-badge.em-atendimento {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-badge.encerrado {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Estados de loading e erro */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.error-state p {
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    width: 240px;
+  }
+  
+  .ticket-detail-container {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-ticket-detail {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    padding: 1rem;
+  }
+  
+  .sidebar-header {
+    padding: 0;
+    border: none;
+  }
+  
+  .sidebar-nav {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 1rem;
+  }
+  
+  .nav-item {
+    padding: 0.5rem 1rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .nav-text {
+    font-size: 0.75rem;
+  }
+  
+  .sidebar-footer {
+    padding: 0;
+    border: none;
+  }
+  
+  .admin-main {
+    padding: 1rem;
+  }
+  
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .status-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .ticket-card {
+    padding: 1.5rem;
+  }
+  
+  .ticket-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}

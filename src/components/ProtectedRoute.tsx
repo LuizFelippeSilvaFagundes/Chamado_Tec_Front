@@ -5,20 +5,24 @@ import { useAuth } from '../contexts/AuthContext'
 interface ProtectedRouteProps {
   children: ReactNode
   requireTechnician?: boolean
+  requireAdmin?: boolean
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  requireTechnician = false 
+  requireTechnician = false,
+  requireAdmin = false
 }) => {
-  const { isAuthenticated, isTechnician, user } = useAuth()
+  const { isAuthenticated, isTechnician, isAdmin, user } = useAuth()
   const location = useLocation()
 
   console.log('🔒 ProtectedRoute verificação:', { 
     isAuthenticated, 
     isTechnician, 
+    isAdmin,
     userRole: user?.role, 
     requireTechnician,
+    requireAdmin,
     currentPath: location.pathname 
   })
 
@@ -27,13 +31,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (requireTechnician && !isTechnician) {
-    // Se não for técnico, redireciona para o dashboard de usuário
+  if (requireAdmin && !isAdmin) {
+    // Se não for admin, redireciona para o dashboard apropriado
+    if (isTechnician) {
+      return <Navigate to="/tech-dashboard" replace />
+    }
     return <Navigate to="/dashboard" replace />
   }
 
-  if (!requireTechnician && isTechnician) {
-    // Se for técnico mas tentar acessar dashboard de usuário, redireciona para tech dashboard
+  if (requireTechnician && !isTechnician && !isAdmin) {
+    // Se não for técnico nem admin, redireciona para o dashboard de usuário
+    return <Navigate to="/dashboard" replace />
+  }
+
+  if (!requireTechnician && !requireAdmin && (isTechnician || isAdmin)) {
+    // Se for técnico ou admin mas tentar acessar dashboard de usuário, redireciona para dashboard apropriado
+    if (isAdmin) {
+      return <Navigate to="/admin-dashboard" replace />
+    }
     return <Navigate to="/tech-dashboard" replace />
   }
 

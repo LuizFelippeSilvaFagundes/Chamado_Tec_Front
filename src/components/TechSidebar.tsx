@@ -2,9 +2,8 @@ import './TechSidebar.css'
 import { useAuth } from '../contexts/AuthContext'
 
 type ActiveSection = 
-  | 'assigned-tickets'
   | 'ticket-management'
-  | 'chat'
+  | 'assigned-tickets'
   | 'equipment-history'
   | 'reports'
   | 'sla-monitoring'
@@ -21,22 +20,16 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
   
   const menuItems = [
     {
-      id: 'assigned-tickets' as ActiveSection,
-      label: 'Chamados Atribuídos',
-      icon: '🎫',
-      description: 'Visualizar chamados atribuídos'
-    },
-    {
       id: 'ticket-management' as ActiveSection,
       label: 'Gerenciar Chamados',
-      icon: '⚙️',
-      description: 'Atualizar status e histórico'
+      icon: '📋',
+      description: 'Fila de novos chamados - pegar da fila'
     },
     {
-      id: 'chat' as ActiveSection,
-      label: 'Chat',
-      icon: '💬',
-      description: 'Chat integrado com usuários'
+      id: 'assigned-tickets' as ActiveSection,
+      label: 'Meus Chamados',
+      icon: '🎫',
+      description: 'Chamados que você pegou para resolver'
     },
     {
       id: 'equipment-history' as ActiveSection,

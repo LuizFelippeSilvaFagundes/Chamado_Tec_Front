@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTime } from '../../utils/dateUtils'
+import { getAvailableTickets, takeTicket, updateTicketStatus } from '../../api/api'
 
 interface TicketDetail {
   id: number
   title: string
   description: string
   priority: 'low' | 'medium' | 'high' | 'critical'
-  status: 'pending' | 'in-progress' | 'resolved' | 'closed'
+  status: 'open' | 'pending' | 'in-progress' | 'resolved' | 'closed'
   category: string
   created_at: string
   user_name: string
@@ -17,6 +18,8 @@ interface TicketDetail {
   estimated_time?: number
   history: TicketHistory[]
   attachments: string[]
+  assigned_technician_id?: number | null
+  user_id: number
 }
 
 interface TicketHistory {
@@ -28,17 +31,22 @@ interface TicketHistory {
 }
 
 function TicketManagement() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null)
   const [tickets, setTickets] = useState<TicketDetail[]>([])
   const [loading, setLoading] = useState(true)
-  const [newStatus, setNewStatus] = useState('')
-  const [newNote, setNewNote] = useState('')
-  const [timeSpent, setTimeSpent] = useState('')
+  const [takingTicket, setTakingTicket] = useState<number | null>(null)
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
   useEffect(() => {
     fetchTickets()
   }, [])
+
+  // Função para exibir notificação
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({type, message})
+    setTimeout(() => setNotification(null), 3000)
+  }
 
   const fetchTickets = async () => {
     try {
@@ -48,19 +56,10 @@ function TicketManagement() {
         throw new Error('Token não encontrado')
       }
 
-      // Para técnicos, tentar buscar todos os tickets
-      const res = await fetch('http://127.0.0.1:8000/tickets?all=true', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!res.ok) {
-        throw new Error('Erro ao buscar chamados')
-      }
-
-      const data = await res.json()
-      console.log('⚙️ Chamados para gerenciamento:', data)
+      // Buscar apenas tickets disponíveis (não atribuídos) para a fila
+      const response = await getAvailableTickets(token)
+      const data = response.data
+      console.log('📋 Tickets na fila (não atribuídos):', data)
       
       // Converter os dados da API para o formato esperado pelo componente
       const formattedTickets: TicketDetail[] = data.map((ticket: any) => ({
@@ -71,11 +70,13 @@ function TicketManagement() {
         status: ticket.status,
         category: ticket.problem_type,
         created_at: ticket.created_at,
-        user_name: ticket.user_name || 'Usuário',
-        user_email: ticket.user_email || 'usuario@empresa.com',
+        user_name: ticket.user?.full_name || ticket.user?.username || 'Usuário',
+        user_email: ticket.user?.email || 'usuario@empresa.com',
         equipment_id: ticket.equipment_id || 'N/A',
         sla_deadline: ticket.sla_deadline || ticket.created_at,
         estimated_time: ticket.estimated_time || 30,
+        assigned_technician_id: ticket.assigned_technician_id,
+        user_id: ticket.user_id,
         history: ticket.history || [
           {
             id: 1,
@@ -89,86 +90,47 @@ function TicketManagement() {
       }))
       
       setTickets(formattedTickets)
-      if (formattedTickets.length > 0) {
+      if (formattedTickets.length > 0 && !selectedTicket) {
         setSelectedTicket(formattedTickets[0])
       }
     } catch (error) {
-      console.error('Erro ao buscar chamados:', error)
+      console.error('Erro ao buscar chamados da fila:', error)
+      showNotification('error', 'Erro ao carregar fila de chamados')
     } finally {
       setLoading(false)
     }
   }
 
-  const updateTicketStatus = async () => {
-    if (!selectedTicket || !newStatus) return
+  // Função para pegar um ticket da fila
+  const handleTakeTicket = async () => {
+    if (!selectedTicket) return
 
     try {
-      // Simulação de atualização - substituir pela chamada real da API
-      console.log('Atualizando status do chamado:', selectedTicket.id, newStatus)
+      setTakingTicket(selectedTicket.id)
       
-      // Atualizar o ticket localmente
-      const updatedTickets = tickets.map(ticket => 
-        ticket.id === selectedTicket.id 
-          ? { ...ticket, status: newStatus as any }
-          : ticket
-      )
+      if (!token) {
+        throw new Error('Token não encontrado')
+      }
+
+      await takeTicket(token, selectedTicket.id)
+      
+      // Remover ticket da fila local
+      const updatedTickets = tickets.filter(ticket => ticket.id !== selectedTicket.id)
       setTickets(updatedTickets)
       
-      // Atualizar o ticket selecionado
-      setSelectedTicket({ ...selectedTicket, status: newStatus as any })
-      
-      // Adicionar ao histórico
-      const newHistoryEntry: TicketHistory = {
-        id: Date.now(),
-        action: 'status_change',
-        description: `Status alterado para ${newStatus}`,
-        timestamp: new Date().toISOString(),
-        technician_name: 'Técnico Atual'
+      // Selecionar próximo ticket da fila
+      if (updatedTickets.length > 0) {
+        setSelectedTicket(updatedTickets[0])
+      } else {
+        setSelectedTicket(null)
       }
       
-      setSelectedTicket({
-        ...selectedTicket,
-        status: newStatus as any,
-        history: [...selectedTicket.history, newHistoryEntry]
-      })
-      
-      // Limpar campos
-      setNewStatus('')
-      setNewNote('')
-      setTimeSpent('')
-      
-      alert('Status atualizado com sucesso!')
+      showNotification('success', '✅ Chamado atribuído! Agora está em "Meus Chamados"')
     } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status do chamado')
-    }
-  }
-
-  const addNote = async () => {
-    if (!selectedTicket || !newNote.trim()) return
-
-    try {
-      // Simulação de adição de nota - substituir pela chamada real da API
-      console.log('Adicionando nota ao chamado:', selectedTicket.id, newNote)
-      
-      const newHistoryEntry: TicketHistory = {
-        id: Date.now(),
-        action: 'note',
-        description: newNote,
-        timestamp: new Date().toISOString(),
-        technician_name: 'Técnico Atual'
-      }
-      
-      setSelectedTicket({
-        ...selectedTicket,
-        history: [...selectedTicket.history, newHistoryEntry]
-      })
-      
-      setNewNote('')
-      alert('Nota adicionada com sucesso!')
-    } catch (error) {
-      console.error('Erro ao adicionar nota:', error)
-      alert('Erro ao adicionar nota')
+      console.error('Erro ao pegar ticket:', error)
+      showNotification('error', '❌ Erro ao pegar chamado. Tente novamente.')
+    } finally {
+      setTakingTicket(null)
     }
   }
 
@@ -205,11 +167,18 @@ function TicketManagement() {
 
   return (
     <div className="ticket-management">
+      {/* Notificação */}
+      {notification && (
+        <div className={`notification ${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
+
       <div className="section-header">
-        <h2>⚙️ Gerenciamento de Chamados</h2>
+        <h2>📋 Fila de Chamados</h2>
         <div className="section-actions">
           <button className="action-btn primary" onClick={fetchTickets}>
-            🔄 Atualizar
+            🔄 Atualizar Fila
           </button>
         </div>
       </div>
@@ -217,7 +186,7 @@ function TicketManagement() {
       <div className="management-layout">
         {/* Lista de chamados */}
         <div className="tickets-list">
-          <h3>Chamados Disponíveis</h3>
+          <h3>📥 Fila de Chamados ({tickets.length})</h3>
           <div className="tickets-grid">
             {tickets.map((ticket) => (
               <div 
@@ -308,59 +277,16 @@ function TicketManagement() {
 
               {/* Ações do técnico */}
               <div className="detail-section">
-                <h4>🔧 Ações</h4>
+                <h4>🎯 Pegar da Fila</h4>
                 <div className="actions-form">
-                  <div className="form-group">
-                    <label>Alterar Status:</label>
-                    <select 
-                      value={newStatus} 
-                      onChange={(e) => setNewStatus(e.target.value)}
-                      className="form-select"
-                    >
-                      <option value="">Selecione um status</option>
-                      <option value="pending">Pendente</option>
-                      <option value="in-progress">Em Andamento</option>
-                      <option value="resolved">Resolvido</option>
-                      <option value="closed">Fechado</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Adicionar Nota:</label>
-                    <textarea 
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Digite uma nota sobre o atendimento..."
-                      className="form-textarea"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Tempo Gasto (minutos):</label>
-                    <input 
-                      type="number"
-                      value={timeSpent}
-                      onChange={(e) => setTimeSpent(e.target.value)}
-                      placeholder="Ex: 30"
-                      className="form-input"
-                    />
-                  </div>
-
-                  <div className="form-actions">
+                  <div className="take-ticket-section">
+                    <p>Este chamado está na fila de espera. Clique no botão abaixo para assumir o atendimento:</p>
                     <button 
-                      className="action-btn primary"
-                      onClick={updateTicketStatus}
-                      disabled={!newStatus}
+                      className="action-btn take-btn"
+                      onClick={handleTakeTicket}
+                      disabled={takingTicket === selectedTicket.id}
                     >
-                      ✅ Atualizar Status
-                    </button>
-                    <button 
-                      className="action-btn secondary"
-                      onClick={addNote}
-                      disabled={!newNote.trim()}
-                    >
-                      📝 Adicionar Nota
+                      {takingTicket === selectedTicket.id ? '⏳ Pegando...' : '🎯 Pegar Este Chamado'}
                     </button>
                   </div>
                 </div>

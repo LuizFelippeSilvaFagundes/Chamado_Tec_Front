@@ -69,7 +69,10 @@ export default function Login() {
       
       // Usar setTimeout para garantir que o estado seja atualizado antes do redirecionamento
       setTimeout(() => {
-        if (userData.role === 'technician' || userData.role === 'admin') {
+        if (userData.role === 'admin') {
+          console.log('➡️ Redirecionando para admin-dashboard')
+          window.location.href = '/admin-dashboard'
+        } else if (userData.role === 'technician') {
           console.log('➡️ Redirecionando para tech-dashboard')
           window.location.href = '/tech-dashboard'
         } else {
@@ -123,6 +126,10 @@ export default function Login() {
           <p className="tech-link">
             É técnico?{' '}
             <a href="/tech-register">Solicite acesso técnico</a>
+          </p>
+          <p className="admin-link">
+            É administrador?{' '}
+            <a href="/admin-register">Cadastre-se como admin</a>
           </p>
         </div>
       </div>

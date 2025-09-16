@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 import OpenTicket from '../components/OpenTicket'
 import MyTickets from '../components/MyTickets'
@@ -9,14 +8,10 @@ import './UserDashboard.css'
 type ActiveSection = 'open-ticket' | 'my-tickets' | 'knowledge-base'
 
 function UserDashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [activeSection, setActiveSection] = useState<ActiveSection>('open-ticket')
 
   console.log('🔍 UserDashboard renderizando:', { user, activeSection })
-
-  const handleLogout = () => {
-    logout()
-  }
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -43,7 +38,6 @@ function UserDashboard() {
 
   return (
     <div className="dashboard-container">
-      <Header userName={user?.full_name || ''} onLogout={handleLogout} />
       <div className="dashboard-content">
         <Sidebar 
           activeSection={activeSection} 

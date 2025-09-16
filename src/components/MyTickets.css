@@ -1,14 +1,15 @@
 .my-tickets {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
 }
 
 .filters-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: transparent;
   padding: 2rem;
-  border-radius: 20px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 0;
+  box-shadow: none;
   margin-bottom: 2.5rem;
   border: none;
   position: relative;
@@ -97,9 +98,9 @@
 
 /* Nova estrutura de tabela */
 .tickets-table-container {
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   position: relative;
 }

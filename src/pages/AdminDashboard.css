@@ -1,0 +1,469 @@
+/* Layout principal do dashboard do administrador */
+.admin-dashboard {
+  display: flex;
+  height: 100vh;
+  background: white;
+}
+
+/* Sidebar */
+.admin-sidebar {
+  width: 280px;
+  background: #1f2937;
+  display: flex;
+  flex-direction: column;
+  color: white;
+}
+
+.sidebar-header {
+  padding: 2rem 1.5rem;
+  border-bottom: 1px solid #374151;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.brand-role {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Navegação */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+}
+
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #d1d5db;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: #374151;
+  color: white;
+}
+
+.nav-item.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.nav-icon {
+  font-size: 1.125rem;
+  width: 20px;
+  text-align: center;
+}
+
+.nav-text {
+  font-weight: 500;
+}
+
+/* Footer da sidebar */
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #374151;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  background: #3b82f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: white;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+}
+
+.user-email {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Main Content */
+.admin-main {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: white;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Títulos das páginas */
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.page-title::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5rem;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6 0%, transparent 100%);
+  border-radius: 1px;
+}
+
+/* Container de chamados */
+.chamados-container {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.chamados-table-container {
+  overflow-x: auto;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 150px 80px 2fr 150px 150px 120px 80px;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 150px 80px 2fr 150px 150px 120px 80px;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f9fafb;
+}
+
+.table-cell {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.header-cell {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Informações do usuário */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background: #3b82f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: white;
+}
+
+/* Título e serviço */
+.titulo-servico {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.titulo {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.servico {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-badge.aberto {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-badge.em-atendimento {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-badge.encerrado {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Botões */
+.edit-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.edit-btn:hover {
+  background: #f3f4f6;
+}
+
+/* Container de técnicos */
+.tecnicos-container {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.new-btn {
+  background: #1f2937;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.new-btn:hover {
+  background: #374151;
+}
+
+.tecnicos-table-container {
+  overflow-x: auto;
+}
+
+.tecnicos-table-container .table-header {
+  display: grid;
+  grid-template-columns: 200px 250px 1fr 80px;
+  gap: 1rem;
+}
+
+.tecnicos-table-container .table-row {
+  display: grid;
+  grid-template-columns: 200px 250px 1fr 80px;
+  gap: 1rem;
+}
+
+/* Disponibilidade */
+.disponibilidade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.horario-badge {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Estados de loading */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    width: 240px;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 120px 60px 1fr 120px 120px 100px 60px;
+  }
+  
+  .tecnicos-table-container .table-header,
+  .tecnicos-table-container .table-row {
+    grid-template-columns: 150px 200px 1fr 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    padding: 1rem;
+  }
+  
+  .sidebar-header {
+    padding: 0;
+    border: none;
+  }
+  
+  .sidebar-nav {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 1rem;
+  }
+  
+  .nav-item {
+    padding: 0.5rem 1rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .nav-text {
+    font-size: 0.75rem;
+  }
+  
+  .sidebar-footer {
+    padding: 0;
+    border: none;
+  }
+  
+  .admin-main {
+    padding: 1rem;
+  }
+  
+  .table-header,
+  .table-row {
+    display: block;
+  }
+  
+  .header-cell,
+  .table-cell {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .header-cell:last-child,
+  .table-cell:last-child {
+    border-bottom: none;
+  }
+}

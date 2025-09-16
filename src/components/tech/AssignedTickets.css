@@ -1,0 +1,317 @@
+/* ===== ESTILOS SIMPLIFICADOS PARA TÉCNICO ÚNICO ===== */
+
+/* Indicadores visuais baseados no status */
+.status-new {
+  background-color: rgba(0, 123, 255, 0.1) !important; /* Azul claro - Novos */
+  border-left: 4px solid #007bff;
+}
+
+.status-progress {
+  background-color: rgba(255, 193, 7, 0.1) !important; /* Amarelo claro - Em andamento */
+  border-left: 4px solid #ffc107;
+  animation: pulse-progress 3s infinite;
+}
+
+.status-resolved {
+  background-color: rgba(40, 167, 69, 0.1) !important; /* Verde claro - Resolvidos */
+  border-left: 4px solid #28a745;
+}
+
+.status-closed {
+  background-color: rgba(108, 117, 125, 0.05) !important; /* Cinza - Fechados */
+  border-left: 4px solid #6c757d;
+  opacity: 0.7;
+}
+
+.status-pending {
+  background-color: rgba(220, 53, 69, 0.1) !important; /* Vermelho claro - Pendentes */
+  border-left: 4px solid #dc3545;
+}
+
+/* Animação para tickets em andamento */
+@keyframes pulse-progress {
+  0% { background-color: rgba(255, 193, 7, 0.1); }
+  50% { background-color: rgba(255, 193, 7, 0.2); }
+  100% { background-color: rgba(255, 193, 7, 0.1); }
+}
+
+/* Botões de ação melhorados */
+.action-btn.info {
+  background-color: #17a2b8;
+  color: white;
+  border: 2px solid #17a2b8;
+  transition: all 0.3s ease;
+}
+
+.action-btn.info:hover {
+  background-color: #138496;
+  border-color: #117a8b;
+  transform: scale(1.05);
+}
+
+.action-btn.secondary {
+  background-color: #6c757d;
+  color: white;
+  border: 2px solid #6c757d;
+  transition: all 0.3s ease;
+}
+
+.action-btn.secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+  transform: scale(1.05);
+}
+
+.action-btn.success {
+  background-color: #28a745;
+  color: white;
+  border: 2px solid #28a745;
+  transition: all 0.3s ease;
+}
+
+.action-btn.success:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+  transform: scale(1.05);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Estatísticas por status */
+.stat-value.new {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.stat-value.progress {
+  color: #ffc107;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+.stat-value.resolved {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.stat-value.urgent {
+  color: #dc3545;
+  animation: blink 1s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.5; }
+}
+
+/* Melhorias nos filtros */
+.filter-select {
+  padding: 8px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  background-color: white;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Responsividade para dispositivos móveis */
+@media (max-width: 768px) {
+  .assignment-badge {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .action-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 4px;
+    font-size: 12px;
+  }
+}
+
+/* Tooltip customizado */
+.action-btn[title] {
+  position: relative;
+}
+
+.action-btn[title]:hover::before {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0.9;
+}
+
+/* Melhorias na tabela */
+.tech-table {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tech-table thead {
+  background-color: #f8f9fa;
+}
+
+.tech-table tbody tr:hover {
+  transform: translateX(2px);
+  transition: transform 0.2s ease;
+}
+
+/* Estados de loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+/* Estado vazio melhorado */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+/* Notificações */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideInRight 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.notification.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.notification.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Alertas e notificações visuais */
+.success-flash {
+  animation: flash-success 0.5s ease;
+}
+
+.error-flash {
+  animation: flash-error 0.5s ease;
+}
+
+@keyframes flash-success {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(40, 167, 69, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-error {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(220, 53, 69, 0.3); }
+  100% { background-color: transparent; }
+}
+
+/* Botão para pegar ticket da fila */
+.take-btn {
+  background: linear-gradient(135deg, #ffc107, #ff8f00) !important;
+  color: #212529 !important;
+  border: 2px solid #ffc107 !important;
+  font-weight: bold !important;
+  padding: 12px 24px !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3) !important;
+}
+
+.take-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e0a800, #f57f17) !important;
+  border-color: #d39e00 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4) !important;
+}
+
+.take-btn:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.take-ticket-section {
+  text-align: center;
+  padding: 20px;
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 2px dashed #ffc107;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.take-ticket-section p {
+  margin-bottom: 15px;
+  color: #856404;
+  font-weight: 500;
+}
