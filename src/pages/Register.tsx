@@ -1,49 +1,41 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import '../components/Login.css'
 
 export default function Register() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
+  const validatePassword = (password: string) => {
+    return password.length >= 6 
   }
 
-  const validatePassword = (password: string) => {
-    return password.length >= 6
+  const validatePhone = (value: string) => {
+    const digits = value.replace(/\D/g, '')
+    return digits.length >= 8
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage('')
     
-    // Validações
-    if (!username.trim()) {
+    if (!phone.trim()) {
       setErrorMessage('Informe seu nome de usuário.')
-      return
-    }
-    if (username.length < 3) {
-      setErrorMessage('Nome de usuário deve ter pelo menos 3 caracteres.')
       return
     }
     if (!fullName.trim()) {
       setErrorMessage('Informe seu nome completo.')
       return
     }
-    if (!email.trim()) {
-      setErrorMessage('Informe seu email.')
-      return
-    }
-    if (!validateEmail(email)) {
-      setErrorMessage('Informe um email válido.')
+    if (!validatePhone(phone)) {
+      setErrorMessage('Informe um telefone válido (mín. 8 dígitos).')
       return
     }
     if (!password.trim()) {
@@ -67,12 +59,25 @@ export default function Register() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, full_name: fullName, email, password }),
+        // Backend atual espera username/email; aqui derivamos username do telefone
+        // e enviamos um email placeholder baseado no telefone.
+        body: JSON.stringify({
+          username: phone.replace(/\D/g, ''),
+          full_name: fullName,
+          email: `${phone.replace(/\D/g, '')}@noemail.local`,
+          password
+        }),
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Erro ao registrar usuário')
+        let msg = 'Erro ao registrar usuário'
+        try {
+          const data = await res.json()
+          if (typeof data?.detail === 'string') msg = data.detail
+          else if (Array.isArray(data?.detail)) msg = data.detail.map((d: any) => d?.msg || d?.detail || JSON.stringify(d)).join(' | ')
+          else if (data) msg = JSON.stringify(data)
+        } catch {}
+        throw new Error(msg)
       }
 
       setSuccessMessage('Usuário registrado com sucesso! Redirecionando para login...')
@@ -87,7 +92,7 @@ export default function Register() {
 
   return (
     <div className="login-container">
-      <div className="login-card">
+      <div className="login-card register-card">
         <h2>Cadastro</h2>
         
         <form onSubmit={handleSubmit}>
@@ -97,12 +102,11 @@ export default function Register() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Seu usuário"
+              placeholder="Seu nome de usuário"
               required
               disabled={isSubmitting}
             />
           </label>
-          
           <label>
             Nome Completo
             <input
@@ -116,12 +120,12 @@ export default function Register() {
           </label>
           
           <label>
-            Email
+            Telefone
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Seu email"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(00) 00000-0000"
               required
               disabled={isSubmitting}
             />
@@ -138,7 +142,7 @@ export default function Register() {
               disabled={isSubmitting}
             />
           </label>
-          
+
           <label>
             Confirmar Senha
             <input

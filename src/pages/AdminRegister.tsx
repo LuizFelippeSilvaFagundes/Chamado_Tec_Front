@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './AdminRegister.css'
+import '../components/AdminRegister.css'
 
 export default function AdminRegister() {
   const [formData, setFormData] = useState({

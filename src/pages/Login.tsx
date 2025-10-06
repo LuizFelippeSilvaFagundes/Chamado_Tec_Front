@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import './TechRegister.css'
+import '../components/Login.css'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -25,7 +25,7 @@ export default function Login() {
     try {
       console.log('🔐 Tentativa de login:', { username, password })
       
-      const res = await fetch('http://127.0.0.1:8000/login', {
+      const res = await fetch('https://127.0.0.1:8000/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,8 +34,14 @@ export default function Login() {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Erro ao fazer login')
+        let msg = 'Erro ao fazer login'
+        try {
+          const data = await res.json()
+          if (typeof data?.detail === 'string') msg = data.detail
+          else if (Array.isArray(data?.detail)) msg = data.detail.map((d: any) => d?.msg || d?.detail || JSON.stringify(d)).join(' | ')
+          else if (data) msg = JSON.stringify(data)
+        } catch {}
+        throw new Error(msg)
       }
 
       const data = await res.json()

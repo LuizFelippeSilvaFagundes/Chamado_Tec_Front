@@ -90,3 +90,28 @@ export const updateTicketStatus = async (token: string, ticketId: number, status
   const apiAuth = apiWithAuth(token);
   return await apiAuth.put(`/tech/tickets/${ticketId}/status`, { status });
 };
+
+// Perfil do usuário (frontend)
+export const getProfile = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/users/profile');
+};
+
+export const updateProfile = async (token: string, data: Partial<{ full_name: string; email: string; phone?: string }>) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put('/users/profile', data);
+};
+
+export const changePassword = async (token: string, current_password: string, new_password: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post('/users/change-password', { current_password, new_password });
+};
+
+export const uploadAvatar = async (token: string, file: File) => {
+  const apiAuth = apiWithAuth(token);
+  const form = new FormData();
+  form.append('file', file);
+  return await apiAuth.post('/users/profile/avatar', form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};

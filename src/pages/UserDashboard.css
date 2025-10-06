@@ -1,7 +1,7 @@
 .dashboard-container {
   min-height: 100vh;
   background: white;
-  margin-left: 280px; /* Espaço para a sidebar fixa */
+  margin-left: 220px; /* Espaço para a sidebar fixa (sidebar menor) */
   padding-top: 0; /* Removido espaço do header */
 }
 

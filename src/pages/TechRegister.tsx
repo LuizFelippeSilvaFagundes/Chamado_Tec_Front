@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import '../components/TechRegister.css'
 
 export default function TechRegister() {
   const [formData, setFormData] = useState({
@@ -153,8 +154,8 @@ export default function TechRegister() {
   }
 
   return (
-    <div className="register-container">
-      <div className="register-card tech-register">
+    <div className="tech-register-container">
+      <div className="tech-register-card">
         <div className="register-header">
           <h2>🔧 Cadastro de Técnico</h2>
           <p>Preencha os dados abaixo para solicitar acesso como técnico</p>
