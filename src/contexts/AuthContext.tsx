@@ -14,9 +14,6 @@ interface AuthContextType {
   token: string | null
   login: (token: string, user: User) => void
   logout: () => void
-  isAuthenticated: boolean
-  isTechnician: boolean
-  isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -37,10 +34,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
 
-  const isAuthenticated = !!token && !!user
-  const isTechnician = user?.role === 'technician' || user?.role === 'admin'
-  const isAdmin = user?.role === 'admin'
-
   const login = (newToken: string, userData: User) => {
     console.log('🔐 AuthContext: Fazendo login com:', { newToken: newToken.substring(0, 20) + '...', userData })
     setToken(newToken)
@@ -58,55 +51,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      if (token && !user) {
-        try {
-          const res = await fetch('http://127.0.0.1:8000/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          if (res.ok) {
-            const userData = await res.json()
-            setUser(userData)
-            localStorage.setItem('user', JSON.stringify(userData))
-          } else {
-            logout()
-          }
-        } catch (error) {
-          console.error('Erro ao buscar informações do usuário:', error)
-          logout()
-        }
-      } else if (!token && user) {
-        setUser(null)
-      }
-    }
-
     // Tenta recuperar dados do localStorage primeiro
     const savedUser = localStorage.getItem('user')
-    if (savedUser && token) {
+    if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser))
+        const userData = JSON.parse(savedUser)
+        setUser(userData)
+        console.log('✅ Usuário recuperado do localStorage:', userData.username)
       } catch (error) {
         console.error('Erro ao parsear dados do usuário:', error)
         localStorage.removeItem('user')
       }
     }
-
-    fetchUserInfo()
-  }, [token, user])
+  }, [])
 
   const value: AuthContextType = {
     user,
     token,
     login,
-    logout,
-    isAuthenticated,
-    isTechnician,
-    isAdmin
+    logout
   }
 
-  console.log('🔍 AuthContext estado:', { user, token, isAuthenticated, isTechnician, isAdmin })
+  console.log('🔍 AuthContext estado:', { user, token })
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import OpenTicket from '../components/OpenTicket'
 import MyTickets from '../components/MyTickets'
@@ -13,16 +13,21 @@ function UserDashboard() {
 
   console.log('🔍 UserDashboard renderizando:', { user, activeSection })
 
+  // Função para mudar seção (será passada para OpenTicket)
+  const handleSectionChange = (section: ActiveSection) => {
+    setActiveSection(section)
+  }
+
   const renderActiveSection = () => {
     switch (activeSection) {
       case 'open-ticket':
-        return <OpenTicket />
+        return <OpenTicket onTicketCreated={() => handleSectionChange('my-tickets')} />
       case 'my-tickets':
         return <MyTickets />
       case 'knowledge-base':
         return <div className="knowledge-base">Base de Conhecimento em desenvolvimento...</div>
       default:
-        return <OpenTicket />
+        return <OpenTicket onTicketCreated={() => handleSectionChange('my-tickets')} />
     }
   }
 

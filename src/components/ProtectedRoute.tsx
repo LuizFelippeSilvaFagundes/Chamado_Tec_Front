@@ -13,23 +13,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireTechnician = false,
   requireAdmin = false
 }) => {
-  const { isAuthenticated, isTechnician, isAdmin, user } = useAuth()
+  const { user } = useAuth()
   const location = useLocation()
 
   console.log('🔒 ProtectedRoute verificação:', { 
-    isAuthenticated, 
-    isTechnician, 
-    isAdmin,
     userRole: user?.role, 
     requireTechnician,
     requireAdmin,
     currentPath: location.pathname 
   })
 
-  if (!isAuthenticated) {
-    console.log('❌ Usuário não autenticado, redirecionando para login')
+  // Se não há usuário logado, redireciona para login
+  if (!user) {
+    console.log('❌ Usuário não encontrado, redirecionando para login')
     return <Navigate to="/login" state={{ from: location }} replace />
   }
+
+  const isTechnician = user.role === 'technician' || user.role === 'admin'
+  const isAdmin = user.role === 'admin'
 
   if (requireAdmin && !isAdmin) {
     // Se não for admin, redireciona para o dashboard apropriado

@@ -13,6 +13,10 @@ interface TicketForm {
   attachments: File[]
 }
 
+interface OpenTicketProps {
+  onTicketCreated?: () => void
+}
+
 const problemTypes = [
   'Problemas de Hardware',
   'Problemas de Software',
@@ -71,7 +75,7 @@ const priorities = [
   { value: 'high', label: 'Alta', color: '#ef4444' }
 ]
 
-function OpenTicket() {
+function OpenTicket({ onTicketCreated }: OpenTicketProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState<TicketForm>({
     title: '',
@@ -184,7 +188,8 @@ function OpenTicket() {
         location: formData.location,
         priority: formData.priority,
         equipment: formData.equipment,
-        urgency: formData.urgency
+        urgency: formData.urgency,
+        username: JSON.parse(localStorage.getItem('user') || '{}').username
       }
 
       const res = await fetch('http://127.0.0.1:8000/tickets', {
@@ -214,8 +219,14 @@ function OpenTicket() {
         attachments: []
       })
       
-      // Esconder mensagem de sucesso após 3 segundos
-      setTimeout(() => setShowSuccess(false), 3000)
+      // Esconder mensagem de sucesso após 3 segundos e navegar para "Meus Chamados"
+      setTimeout(() => {
+        setShowSuccess(false)
+        // Chamar callback para navegar para "Meus Chamados"
+        if (onTicketCreated) {
+          onTicketCreated()
+        }
+      }, 2000) // Reduzido para 2 segundos para melhor UX
       
     } catch (error) {
       console.error('Erro ao enviar chamado:', error)
@@ -240,7 +251,7 @@ function OpenTicket() {
 
       {showSuccess && (
         <div className="success-message">
-          ✅ Chamado enviado com sucesso! Em breve entraremos em contato.
+          ✅ Chamado enviado com sucesso! Redirecionando para "Meus Chamados"...
         </div>
       )}
 

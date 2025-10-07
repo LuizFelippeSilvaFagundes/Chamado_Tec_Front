@@ -53,26 +53,35 @@ function MyTickets() {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const token = localStorage.getItem('token')
-        if (!token) {
-          setError('Token não encontrado')
+        const userData = JSON.parse(localStorage.getItem('user') || '{}')
+        console.log('🔍 Dados do usuário no localStorage:', userData)
+        
+        if (!userData.username) {
+          console.error('❌ Username não encontrado no localStorage')
+          setError('Usuário não encontrado. Faça login novamente.')
           return
         }
 
-        const res = await fetch('http://127.0.0.1:8000/tickets', {
+        console.log('🔍 Buscando tickets para usuário:', userData.username)
+        const res = await fetch(`http://127.0.0.1:8000/tickets/me/${userData.username}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           }
         })
 
+        console.log('🔍 Resposta da API:', res.status)
         if (!res.ok) {
-          throw new Error('Erro ao buscar tickets')
+          const errorText = await res.text()
+          console.error('❌ Erro da API:', errorText)
+          throw new Error(`Erro ao buscar tickets: ${res.status}`)
         }
 
         const data = await res.json()
+        console.log('✅ Tickets recebidos:', data)
         setTickets(data)
         setFilteredTickets(data)
       } catch (err) {
+        console.error('❌ Erro completo:', err)
         setError(err instanceof Error ? err.message : 'Erro ao carregar tickets')
       } finally {
         setLoading(false)

@@ -25,7 +25,7 @@ export default function Login() {
     try {
       console.log('🔐 Tentativa de login:', { username, password })
       
-      const res = await fetch('https://127.0.0.1:8000/login', {
+      const res = await fetch('http://127.0.0.1:8000/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,13 +77,13 @@ export default function Login() {
       setTimeout(() => {
         if (userData.role === 'admin') {
           console.log('➡️ Redirecionando para admin-dashboard')
-          window.location.href = '/admin-dashboard'
+          navigate('/admin-dashboard')
         } else if (userData.role === 'technician') {
           console.log('➡️ Redirecionando para tech-dashboard')
-          window.location.href = '/tech-dashboard'
+          navigate('/tech-dashboard')
         } else {
           console.log('➡️ Redirecionando para dashboard')
-          window.location.href = '/dashboard'
+          navigate('/dashboard')
         }
       }, 100)
     } catch (error) {

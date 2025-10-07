@@ -26,8 +26,16 @@ export default function Register() {
     e.preventDefault()
     setErrorMessage('')
     
-    if (!phone.trim()) {
+    if (!username.trim()) {
       setErrorMessage('Informe seu nome de usuário.')
+      return
+    }
+    if (username.trim().length < 3) {
+      setErrorMessage('Nome de usuário deve ter pelo menos 3 caracteres.')
+      return
+    }
+    if (!phone.trim()) {
+      setErrorMessage('Informe seu telefone.')
       return
     }
     if (!fullName.trim()) {
@@ -54,7 +62,7 @@ export default function Register() {
     setIsSubmitting(true)
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/register', {
+      const res = await fetch('http://localhost:8000/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,9 +70,9 @@ export default function Register() {
         // Backend atual espera username/email; aqui derivamos username do telefone
         // e enviamos um email placeholder baseado no telefone.
         body: JSON.stringify({
-          username: phone.replace(/\D/g, ''),
+          username: username.trim(),
           full_name: fullName,
-          email: `${phone.replace(/\D/g, '')}@noemail.local`,
+          phone: phone.replace(/\D/g, ''),
           password
         }),
       })
