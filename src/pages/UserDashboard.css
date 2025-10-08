@@ -1,7 +1,7 @@
 .dashboard-container {
   min-height: 100vh;
   background: white;
-  margin-left: 220px; /* Espaço para a sidebar fixa (sidebar menor) */
+  margin-left: 280px; /* Espaço para a sidebar fixa (sidebar maior) */
   padding-top: 0; /* Removido espaço do header */
 }
 
@@ -12,7 +12,7 @@
 
 .main-content {
   flex: 1;
-  padding: 0;
+  padding: 2rem;
   overflow-y: auto;
   background: white;
   border: none;
@@ -30,8 +30,8 @@
 }
 
 .knowledge-base h2 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
   color: #1e293b;
 }
 

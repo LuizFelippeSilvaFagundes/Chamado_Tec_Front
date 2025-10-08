@@ -7,10 +7,10 @@
 
 .filters-section {
   background: transparent;
-  padding: 2rem;
+  padding: 2.5rem;
   border-radius: 0;
   box-shadow: none;
-  margin-bottom: 2.5rem;
+  margin-bottom: 3rem;
   border: none;
   position: relative;
   overflow: hidden;
@@ -32,10 +32,10 @@
 
 .search-box input {
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   border: 2px solid #e2e8f0;
   border-radius: 16px;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   transition: all 0.3s ease;
   background: white;
   color: #1e293b;
@@ -66,11 +66,11 @@
 }
 
 .filter-controls select {
-  padding: 0.875rem 1rem;
+  padding: 1rem 1.25rem;
   border: 2px solid #e2e8f0;
   border-radius: 12px;
   background: white;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   color: #1e293b;
