@@ -96,6 +96,20 @@
   font-size: 0.9rem;
 }
 
+.user-avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.menu-toggle:hover .user-avatar-img {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+}
+
 .dropdown-arrow {
   font-size: 0.7rem;
   transition: transform 0.2s ease;

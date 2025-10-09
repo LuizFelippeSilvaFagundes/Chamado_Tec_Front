@@ -7,6 +7,7 @@ export interface User {
   email: string
   role: 'user' | 'technician' | 'admin'
   is_active: boolean
+  avatar_url?: string | null
 }
 
 interface AuthContextType {

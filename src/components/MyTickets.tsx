@@ -3,6 +3,14 @@ import { formatDateTime, formatDateOnly } from '../utils/dateUtils'
 import DateTestModal from './DateTestModal'
 import './MyTickets.css'
 
+interface Attachment {
+  filename: string
+  stored_filename: string
+  url: string
+  size: number
+  type: string
+}
+
 interface Ticket {
   id: number
   title: string
@@ -14,6 +22,12 @@ interface Ticket {
   created_at: string
   updated_at: string
   comments: Comment[]
+  attachments?: Attachment[] | null
+  assigned_tech?: {
+    id: number
+    full_name: string
+    avatar_url?: string
+  }
 }
 
 interface Comment {
@@ -25,15 +39,23 @@ interface Comment {
 }
 
 const statusConfig = {
-  open: { label: 'Aberto', color: '#3B82F6', icon: '🔵' },
-  'in-progress': { label: 'Em Andamento', color: '#F59E0B', icon: '🟡' },
-  resolved: { label: 'Resolvido', color: '#10B981', icon: '🟢' }
+  open: { label: 'Aberto', color: '#EF4444', icon: '❓' },
+  'in-progress': { label: 'Em Atendimento', color: '#3B82F6', icon: '🕒' },
+  resolved: { label: 'Encerrado', color: '#10B981', icon: '✅' }
 }
 
 const priorityConfig = {
   low: { label: 'Baixa', color: '#10B981' },
   medium: { label: 'Média', color: '#F59E0B' },
   high: { label: 'Alta', color: '#EF4444' }
+}
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('')
 }
 
 function MyTickets() {
@@ -133,20 +155,10 @@ function MyTickets() {
 
   // Usando a função utilitária para formatação de datas
 
-  const getStatusProgress = (status: string) => {
-    switch (status) {
-      case 'open': return 25
-      case 'in-progress': return 75
-      case 'resolved': return 100
-      default: return 0
-    }
-  }
-
   return (
     <div className="my-tickets">
       <div className="section-header">
         <h1>📋 Meus Chamados</h1>
-        <p>Acompanhe o status e histórico dos seus chamados</p>
       </div>
 
       {loading && (
@@ -234,13 +246,12 @@ function MyTickets() {
               <div className="tickets-table">
                 {/* Header da tabela */}
                 <div className="table-header">
-                  <div className="table-cell header-cell">ID</div>
+                  <div className="table-cell header-cell">Atualizado em</div>
+                  <div className="table-cell header-cell">Id</div>
                   <div className="table-cell header-cell">Título</div>
-                  <div className="table-cell header-cell">Tipo</div>
-                  <div className="table-cell header-cell">Local</div>
-                  <div className="table-cell header-cell">Prioridade</div>
+                  <div className="table-cell header-cell">Serviço</div>
+                  <div className="table-cell header-cell">Técnico</div>
                   <div className="table-cell header-cell">Status</div>
-                  <div className="table-cell header-cell">Data</div>
                   <div className="table-cell header-cell">Ações</div>
                 </div>
 
@@ -252,7 +263,10 @@ function MyTickets() {
                     onClick={() => openTicketDetails(ticket)}
                   >
                     <div className="table-cell">
-                      <span className="ticket-id">#{ticket.id}</span>
+                      <span className="updated-date">{formatDateOnly(ticket.updated_at)}</span>
+                    </div>
+                    <div className="table-cell">
+                      <span className="ticket-id">{String(ticket.id).padStart(5, '0')}</span>
                     </div>
                     <div className="table-cell title-cell">
                       <div className="ticket-title">
@@ -263,20 +277,29 @@ function MyTickets() {
                       <span className="problem-type">{ticket.problem_type}</span>
                     </div>
                     <div className="table-cell">
-                      <span className="location">{ticket.location}</span>
-                    </div>
-                    <div className="table-cell">
-                      <div className="priority-badge" style={{ backgroundColor: priorityConfig[ticket.priority].color }}>
-                        {priorityConfig[ticket.priority].label}
-                      </div>
+                      {ticket.assigned_tech ? (
+                        <div className="tech-info">
+                          {ticket.assigned_tech.avatar_url ? (
+                            <img 
+                              src={`http://127.0.0.1:8000${ticket.assigned_tech.avatar_url}`}
+                              alt={ticket.assigned_tech.full_name}
+                              className="tech-avatar"
+                            />
+                          ) : (
+                            <div className="tech-avatar-initials">
+                              {getInitials(ticket.assigned_tech.full_name)}
+                            </div>
+                          )}
+                          <span className="tech-name">{ticket.assigned_tech.full_name}</span>
+                        </div>
+                      ) : (
+                        <span className="no-tech">Não atribuído</span>
+                      )}
                     </div>
                     <div className="table-cell">
                       <div className="status-badge" style={{ backgroundColor: statusConfig[ticket.status].color }}>
                         {statusConfig[ticket.status].icon} {statusConfig[ticket.status].label}
                       </div>
-                    </div>
-                    <div className="table-cell">
-                      <span className="created-date">{formatDateTime(ticket.created_at)}</span>
                     </div>
                     <div className="table-cell action-cell">
                       <button 
@@ -351,6 +374,59 @@ function MyTickets() {
                 <h4>Descrição</h4>
                 <p>{selectedTicket.description}</p>
               </div>
+
+              {/* Anexos */}
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                <div className="ticket-attachments">
+                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
+                  <div className="attachments-list">
+                    {selectedTicket.attachments.map((attachment, index) => {
+                      const isImage = attachment.type.startsWith('image/');
+                      const fileSize = (attachment.size / 1024).toFixed(1); // KB
+                      
+                      return (
+                        <div key={index} className="attachment-item">
+                          {isImage ? (
+                            <div className="attachment-preview">
+                              <img 
+                                src={`http://127.0.0.1:8000${attachment.url}`}
+                                alt={attachment.filename}
+                                className="attachment-thumbnail"
+                                onClick={() => window.open(`http://127.0.0.1:8000${attachment.url}`, '_blank')}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="attachment-icon">
+                              📄
+                            </div>
+                          )}
+                          <div className="attachment-info">
+                            <span className="attachment-name" title={attachment.filename}>
+                              {attachment.filename}
+                            </span>
+                            <span className="attachment-size">
+                              {fileSize} KB
+                            </span>
+                          </div>
+                          <button
+                            className="download-btn"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = `http://127.0.0.1:8000/tickets/${selectedTicket.id}/attachments/download/${attachment.stored_filename}`;
+                              link.download = attachment.filename;
+                              link.click();
+                            }}
+                            title="Baixar arquivo"
+                          >
+                            ⬇️
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {selectedTicket.comments.length > 0 && (
                 <div className="comments-section">

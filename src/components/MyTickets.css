@@ -1,90 +1,101 @@
 .my-tickets {
-  max-width: none;
-  margin: 0;
-  padding: 0;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 1rem;
   width: 100%;
-}
-
-.filters-section {
-  background: transparent;
-  padding: 2.5rem;
-  border-radius: 0;
-  box-shadow: none;
-  margin-bottom: 3rem;
-  border: none;
-  position: relative;
+  background: #f8fafc;
+  min-height: 100vh;
   overflow: hidden;
 }
 
-.filters-section::before {
-  content: '';
-  position: absolute;
+.section-header {
+  background: white;
+  padding: 2rem 1rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px 8px 0 0;
+}
+
+.section-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.section-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.filters-section {
+  background: white;
+  padding: 1.5rem 1rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .search-box {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .search-box input {
   width: 100%;
-  padding: 1.25rem 1.5rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
-  font-size: 1.25rem;
-  transition: all 0.3s ease;
-  background: white;
-  color: #1e293b;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 0.875rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 500;
+  box-shadow: none;
 }
 
 .search-box input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15), 0 4px 12px rgba(102, 126, 234, 0.1);
+  border-color: #3b82f6;
   background: white;
-  color: #1e293b;
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-box input::placeholder {
-  color: #6b7280;
+  color: #9ca3af;
   font-weight: 400;
-  opacity: 0.8;
 }
 
 .filter-controls {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
   align-items: center;
 }
 
 .filter-controls select {
-  padding: 1rem 1.25rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   background: white;
-  font-size: 1.1rem;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  color: #1e293b;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  color: #374151;
+  font-weight: 500;
+  min-width: 150px;
 }
 
 .filter-controls select:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  color: #1e293b;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15), 0 4px 12px rgba(102, 126, 234, 0.1);
-  transform: translateY(-1px);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .tickets-list {
@@ -98,21 +109,13 @@
 
 /* Nova estrutura de tabela */
 .tickets-table-container {
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
+  background: white;
+  margin: 0;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   position: relative;
-}
-
-.tickets-table-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  width: 100%;
 }
 
 .tickets-table {
@@ -120,20 +123,21 @@
   flex-direction: column;
   max-height: 60vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .table-header {
   display: grid;
-  grid-template-columns: 80px 2fr 1fr 1fr 120px 120px 150px 80px;
-  gap: 1rem;
-  padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom: 2px solid #e2e8f0;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #374151;
+  grid-template-columns: 80px 50px 1fr 0.8fr 120px 80px 50px;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -141,19 +145,18 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 80px 2fr 1fr 1fr 120px 120px 150px 80px;
-  gap: 1rem;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #f1f5f9;
-  transition: all 0.3s ease;
+  grid-template-columns: 80px 50px 1fr 0.8fr 120px 80px 50px;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;  
+  border-bottom: 1px solid #f3f4f6;
+  transition: all 0.2s ease;
   cursor: pointer;
   align-items: center;
+  background: white;
 }
 
 .table-row:hover {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f9fafb;
 }
 
 .table-row:last-child {
@@ -219,10 +222,58 @@
   font-size: 0.9rem;
 }
 
-.created-date {
+.created-date,
+.updated-date {
   font-weight: 500;
   color: #64748b;
   font-size: 0.85rem;
+}
+
+.ticket-id {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+  font-family: monospace;
+}
+
+.tech-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tech-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+.tech-avatar-initials {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 2px solid #e5e7eb;
+}
+
+.tech-name {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.no-tech {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  font-style: italic;
 }
 
 .sla-cell {
@@ -260,25 +311,24 @@
 }
 
 .view-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: transparent;
+  color: #6b7280;
   border: none;
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-size: 1rem;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .view-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #f3f4f6;
+  color: #374151;
 }
 
 /* Estilização da scrollbar */
@@ -382,17 +432,25 @@
   align-items: flex-end;
 }
 
-.status-badge,
-.priority-badge {
-  padding: 0.625rem 1rem;
-  border-radius: 25px;
-  font-size: 0.85rem;
-  font-weight: 700;
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: white;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.priority-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
 }
 
 .ticket-body {
@@ -718,32 +776,54 @@
 
 /* Responsividade para a nova tabela */
 @media (max-width: 1200px) {
+  .my-tickets {
+    max-width: 900px;
+    padding: 0 0.75rem;
+  }
+  
+  .section-header {
+    padding: 1.5rem 0.75rem;
+  }
+  
+  .filters-section {
+    padding: 1rem 0.75rem;
+  }
+  
   .table-header,
   .table-row {
-    grid-template-columns: 60px 1.5fr 0.8fr 0.8fr 100px 100px 120px 60px;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
+    grid-template-columns: 70px 40px 1fr 0.7fr 110px 70px 40px;
+    gap: 0.25rem;
+    padding: 0.4rem 0.5rem;
   }
   
   .table-header {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
   
   .table-cell {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 }
 
 @media (max-width: 768px) {
-  .tickets-table-container {
-    border-radius: 16px;
+  .my-tickets {
+    max-width: 700px;
+    padding: 0 0.5rem;
+  }
+  
+  .section-header {
+    padding: 1rem 0.5rem;
+  }
+  
+  .filters-section {
+    padding: 0.75rem 0.5rem;
   }
   
   .table-header,
   .table-row {
-    grid-template-columns: 50px 1fr 80px 80px 60px;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    grid-template-columns: 60px 35px 1fr 100px 40px;
+    gap: 0.25rem;
+    padding: 0.3rem 0.4rem;
   }
   
   .table-header {
@@ -764,8 +844,7 @@
     padding: 0.2rem 0.4rem;
   }
   
-  .status-badge,
-  .priority-badge {
+  .status-badge {
     padding: 0.4rem 0.6rem;
     font-size: 0.7rem;
   }
@@ -776,21 +855,49 @@
     font-size: 0.8rem;
   }
   
+  .tech-info {
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-start;
+  }
+  
+  .tech-avatar,
+  .tech-avatar-initials {
+    width: 22px;
+    height: 22px;
+    font-size: 0.65rem;
+  }
+  
+  .tech-name {
+    font-size: 0.7rem;
+  }
+  
   /* Esconder colunas menos importantes em mobile */
   .table-header .header-cell:nth-child(4),
-  .table-header .header-cell:nth-child(7),
-  .table-row .table-cell:nth-child(4),
-  .table-row .table-cell:nth-child(7) {
+  .table-row .table-cell:nth-child(4) {
     display: none;
   }
 }
 
 @media (max-width: 480px) {
+  .my-tickets {
+    max-width: 500px;
+    padding: 0 0.25rem;
+  }
+  
+  .section-header {
+    padding: 0.75rem 0.25rem;
+  }
+  
+  .filters-section {
+    padding: 0.5rem 0.25rem;
+  }
+  
   .table-header,
   .table-row {
-    grid-template-columns: 40px 1fr 60px 50px;
-    gap: 0.25rem;
-    padding: 0.5rem 0.75rem;
+    grid-template-columns: 50px 30px 1fr 90px 35px;
+    gap: 0.15rem;
+    padding: 0.25rem 0.3rem;
   }
   
   .table-header {
@@ -811,8 +918,7 @@
     padding: 0.15rem 0.3rem;
   }
   
-  .status-badge,
-  .priority-badge {
+  .status-badge {
     padding: 0.3rem 0.5rem;
     font-size: 0.65rem;
   }
@@ -822,4 +928,122 @@
     height: 24px;
     font-size: 0.7rem;
   }
+  
+  .tech-avatar,
+  .tech-avatar-initials {
+    width: 18px;
+    height: 18px;
+    font-size: 0.55rem;
+  }
+  
+  .tech-name {
+    font-size: 0.65rem;
+  }
+}
+
+/* === ANEXOS === */
+.ticket-attachments {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.ticket-attachments h4 {
+  margin: 0 0 1rem 0;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.attachment-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.attachment-preview {
+  flex-shrink: 0;
+}
+
+.attachment-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.attachment-thumbnail:hover {
+  border-color: #3b82f6;
+  transform: scale(1.05);
+}
+
+.attachment-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  border: 2px solid #e5e7eb;
+}
+
+.attachment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.attachment-name {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.download-btn {
+  flex-shrink: 0;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  background: #2563eb;
+  transform: scale(1.1);
 }

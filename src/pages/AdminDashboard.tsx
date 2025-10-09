@@ -1,13 +1,65 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import AvatarUpload from '../components/AvatarUpload'
 import './AdminDashboard.css'
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('chamados')
+  const [activeTab, setActiveTab] = useState('chamados-abertos')
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [showAccountModal, setShowAccountModal] = useState(false)
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Sincronizar avatar com o contexto
+  useEffect(() => {
+    if (user?.avatar_url) {
+      setUserAvatarUrl(user.avatar_url)
+    }
+  }, [user?.avatar_url])
+
+  // Fechar modal ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setShowAccountModal(false)
+      }
+    }
+
+    if (showAccountModal) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAccountModal])
+
+  const getUserInitials = () => {
+    if (!user?.full_name) return 'UA'
+    return user.full_name
+      .split(' ')
+      .map(name => name.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('')
+  }
+
+  const handleAvatarUpdate = (newAvatarUrl: string) => {
+    setUserAvatarUrl(newAvatarUrl)
+    setShowAvatarModal(false)
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'chamados-abertos':
+        return <ChamadosAbertosList />
       case 'chamados':
         return <ChamadosList />
       case 'tecnicos':
@@ -17,7 +69,7 @@ export default function AdminDashboard() {
       case 'servicos':
         return <ServicosList />
       default:
-        return <ChamadosList />
+        return <ChamadosAbertosList />
     }
   }
 
@@ -41,6 +93,14 @@ export default function AdminDashboard() {
         </div>
 
         <nav className="sidebar-nav">
+          <button 
+            className={`nav-item ${activeTab === 'chamados-abertos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chamados-abertos')}
+          >
+            <span className="nav-icon">🔓</span>
+            <span className="nav-text">Chamados Abertos</span>
+          </button>
+          
           <button 
             className={`nav-item ${activeTab === 'chamados' ? 'active' : ''}`}
             onClick={() => setActiveTab('chamados')}
@@ -74,15 +134,27 @@ export default function AdminDashboard() {
           </button>
         </nav>
 
-        <div className="sidebar-footer">
+        {/* User Profile */}
+        <div className="sidebar-user">
           <div className="user-profile">
-            <div className="user-avatar">
-              <span>UA</span>
-            </div>
-            <div className="user-info">
-              <div className="user-name">Usuário Adm</div>
-              <div className="user-email">user.adm@test.com</div>
-            </div>
+            <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
+              {userAvatarUrl ? (
+                <img 
+                  src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                  alt="Avatar"
+                  className="user-avatar"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <div className="user-avatar">{getUserInitials()}</div>
+              )}
+              <span className="user-short-name">{user?.full_name || 'Usuário Adm'}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -91,6 +163,38 @@ export default function AdminDashboard() {
       <div className="admin-main">
         {renderContent()}
       </div>
+
+      {/* Modal de Perfil */}
+      {showAccountModal && (
+        <div className="account-popover" ref={popoverRef}>
+          <div className="account-popover-title">Opções</div>
+          <button 
+            className="account-popover-item" 
+            onClick={() => {
+              setShowAccountModal(false)
+              setShowAvatarModal(true)
+            }}
+          >
+            <img className="item-icon-img" src="/src/assets/icons/circle-user.svg" alt="perfil" />
+            <span>Alterar Foto</span>
+          </button>
+          <button 
+            className="account-popover-item danger" 
+            onClick={handleLogout}
+          >
+            <img className="item-icon-img" src="/src/assets/icons/log-out.svg" alt="sair" />
+            <span>Sair</span>
+          </button>
+        </div>
+      )}
+
+      {/* Modal de Avatar com Crop */}
+      {showAvatarModal && (
+        <AvatarUpload 
+          onClose={() => setShowAvatarModal(false)}
+          onAvatarUpdate={handleAvatarUpdate}
+        />
+      )}
     </div>
   )
 }
@@ -386,6 +490,256 @@ function TecnicosList() {
           ))
         )}
       </div>
+    </div>
+  )
+}
+
+// Interfaces para tipagem
+interface Ticket {
+  id: number
+  title: string
+  description: string
+  created_at: string
+  assigned_technician?: {
+    id: number
+    full_name: string
+  }
+}
+
+interface Technician {
+  id: number
+  full_name: string
+  specialty?: string[]
+}
+
+// Componente para Chamados Abertos
+function ChamadosAbertosList() {
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [technicians, setTechnicians] = useState<Technician[]>([])
+
+  useEffect(() => {
+    fetchOpenTickets()
+    fetchTechnicians()
+  }, [])
+
+  const fetchOpenTickets = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://127.0.0.1:8000/admin/tickets?status=open')
+      if (response.ok) {
+        const data = await response.json()
+        setTickets(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar chamados abertos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchTechnicians = async () => {
+    try {
+      console.log('🔍 Buscando técnicos...')
+      const response = await fetch('http://127.0.0.1:8000/admin/tecnicos')
+      console.log('📡 Response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('👥 Técnicos recebidos:', data)
+        setTechnicians(data)
+      } else {
+        console.error('❌ Erro na resposta:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar técnicos:', error)
+    }
+  }
+
+  const handleAssignTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setShowAssignModal(true)
+  }
+
+  const assignToTechnician = async (technicianId: number) => {
+    if (!selectedTicket) return
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/admin/tickets/${selectedTicket.id}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ technician_id: technicianId })
+      })
+
+      if (response.ok) {
+        setShowAssignModal(false)
+        setSelectedTicket(null)
+        fetchOpenTickets() // Recarregar a lista
+        alert('Chamado atribuído com sucesso!')
+      } else {
+        alert('Erro ao atribuir chamado')
+      }
+    } catch (error) {
+      console.error('Erro ao atribuir chamado:', error)
+      alert('Erro ao atribuir chamado')
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((word: string) => word.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('')
+  }
+
+  if (loading) {
+    return (
+      <div className="chamados-abertos-container">
+        <div className="loading">Carregando chamados abertos...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="chamados-abertos-container">
+      <div className="page-header">
+        <h1 className="page-title">Chamados Abertos</h1>
+        <p className="page-subtitle">Gerencie e atribua chamados aos técnicos</p>
+      </div>
+
+      {/* Seção de Chamados Abertos */}
+      <div className="tickets-section">
+        <div className="section-header">
+          <div className="status-badge aberto">
+            <span className="status-icon">❓</span>
+            <span className="status-text">Aberto</span>
+          </div>
+        </div>
+
+        <div className="tickets-grid">
+          {tickets.length === 0 ? (
+            <div className="no-tickets">
+              <p>Nenhum chamado aberto no momento</p>
+            </div>
+          ) : (
+            tickets.map(ticket => (
+              <div key={ticket.id} className="ticket-card">
+                <div className="ticket-header">
+                  <div className="ticket-id">#{String(ticket.id).padStart(5, '0')}</div>
+                  <div className="ticket-actions">
+                    <button className="edit-btn">✏️</button>
+                    <button 
+                      className="start-btn"
+                      onClick={() => handleAssignTicket(ticket)}
+                    >
+                      🕒 Iniciar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ticket-content">
+                  <h3 className="ticket-title">{ticket.title}</h3>
+                  <p className="ticket-description">{ticket.description}</p>
+                  <div className="ticket-meta">
+                    <span className="ticket-date">{formatDate(ticket.created_at)}</span>
+                  </div>
+                </div>
+
+                <div className="ticket-footer">
+                  <div className="assignee">
+                    {ticket.assigned_technician ? (
+                      <div className="tech-info">
+                        <div className="tech-avatar">
+                          {getInitials(ticket.assigned_technician.full_name)}
+                        </div>
+                        <span className="tech-name">{ticket.assigned_technician.full_name}</span>
+                      </div>
+                    ) : (
+                      <span className="no-assignee">Não atribuído</span>
+                    )}
+                  </div>
+                  <div className="status-indicator aberto">
+                    <span className="status-icon">❓</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Modal de Atribuição */}
+      {showAssignModal && (
+        <div className="assign-modal-overlay">
+          <div className="assign-modal">
+            <div className="modal-header">
+              <h3>👑 Atribuir Chamado</h3>
+              <button 
+                className="close-btn"
+                onClick={() => setShowAssignModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="modal-content">
+              <p><strong>Chamado:</strong> {selectedTicket?.title}</p>
+              <p><strong>Descrição:</strong> {selectedTicket?.description}</p>
+              
+              <div className="technicians-list">
+                <h4>👥 Selecione um técnico:</h4>
+                {technicians.length === 0 ? (
+                  <div className="no-technicians">
+                    <p>Nenhum técnico encontrado. Verifique se há técnicos cadastrados.</p>
+                    <button 
+                      className="test-btn"
+                      onClick={() => {
+                        // Técnico de teste para debug
+                        const testTech = { id: 1, full_name: 'Técnico Teste', specialty: ['Rede', 'Hardware'] }
+                        setTechnicians([testTech])
+                      }}
+                    >
+                      Usar Técnico de Teste
+                    </button>
+                  </div>
+                ) : (
+                  technicians.map(tech => (
+                    <div 
+                      key={tech.id} 
+                      className="technician-option"
+                      onClick={() => assignToTechnician(tech.id)}
+                    >
+                      <div className="tech-avatar">
+                        {getInitials(tech.full_name)}
+                      </div>
+                      <div className="tech-info">
+                        <span className="tech-name">{tech.full_name}</span>
+                        <span className="tech-specialty">{tech.specialty?.join(', ')}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

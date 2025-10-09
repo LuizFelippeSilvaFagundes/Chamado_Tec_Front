@@ -2,7 +2,8 @@ import './Sidebar.css'
 import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { changePassword, uploadAvatar } from '../api/api'
+import { changePassword } from '../api/api'
+import AvatarUpload from './AvatarUpload'
 
 interface SidebarProps {
   activeSection: 'open-ticket' | 'my-tickets' | 'knowledge-base'
@@ -13,6 +14,17 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const { user, logout, token } = useAuth()
   const [showAccountModal, setShowAccountModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null | undefined>(null)
+  
+  // Carregar avatar do user
+  useEffect(() => {
+    if (user?.avatar_url) {
+      setUserAvatarUrl(user.avatar_url)
+    } else {
+      setUserAvatarUrl(null)
+    }
+  }, [user])
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [currentPwd, setCurrentPwd] = useState('')
@@ -23,6 +35,10 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const [currentPwdVisible, setCurrentPwdVisible] = useState(false)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
+
+  const handleAvatarUpdate = (newAvatarUrl: string | null) => {
+    setUserAvatarUrl(newAvatarUrl)
+  }
 
   const menuItems = [
     {
@@ -66,7 +82,7 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
           <img src="/Logo_IconDark.svg" alt="HelpDesk" className="logo-img" />
           <div className="logo-text">
             <h1>HelpDesk</h1>
-            <span>CLIENTE</span>
+            <span>Servidor</span>
           </div>
         </div>
       </div>
@@ -89,7 +105,21 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
       <div className="sidebar-user">
         <div className="user-profile">
           <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
-            <div className="user-avatar">{getUserInitials()}</div>
+            {userAvatarUrl ? (
+              <img 
+                src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                alt="Avatar"
+                className="user-avatar"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  objectFit: 'cover'
+                }}
+              />
+            ) : (
+              <div className="user-avatar">{getUserInitials()}</div>
+            )}
             <span className="user-short-name">{user?.full_name || 'Usuário'}</span>
           </button>
         </div>
@@ -119,36 +149,33 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
               </button>
             </div>
             <div className="profile-avatar-row">
-              <div className="profile-avatar-circle">{getUserInitials()}</div>
+              {userAvatarUrl ? (
+                <img 
+                  src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                  alt="Avatar"
+                  className="profile-avatar-circle"
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '3px solid #3b82f6'
+                  }}
+                />
+              ) : (
+                <div className="profile-avatar-circle">{getUserInitials()}</div>
+              )}
               <div className="profile-avatar-actions">
-                <label className="upload-btn">
+                <button 
+                  className="upload-btn"
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setShowAvatarModal(true);
+                  }}
+                  style={{ border: 'none', cursor: 'pointer' }}
+                >
                   <img src="/src/assets/icons/upload.svg" alt="upload" />
                   <span>Nova imagem</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        const res = await uploadAvatar(token ?? '', file);
-                        const updated = res.data;
-                        // atualiza avatar no modal e no topo sem recarregar
-                        if (updated?.full_name) {
-                          // opcional: usar URL retornada para mostrar preview
-                          const img = document.createElement('img');
-                          img.src = updated.avatar_url;
-                        }
-                        setShowProfileModal(true);
-                      } catch (err) {
-                        console.error('Falha ao enviar avatar', err);
-                      }
-                    }}
-                  />
-                </label>
-                <button className="danger-icon" title="Remover foto">
-                  <img src="/src/assets/icons/trash.svg" alt="remover" />
                 </button>
               </div>
             </div>
@@ -242,6 +269,14 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal de Avatar com Crop */}
+      {showAvatarModal && (
+        <AvatarUpload 
+          onClose={() => setShowAvatarModal(false)}
+          onAvatarUpdate={handleAvatarUpdate}
+        />
       )}
 
     </aside>

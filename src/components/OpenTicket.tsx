@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
+import { uploadTicketAttachments } from '../api/api'
 import './OpenTicket.css'
 
 interface TicketForm {
@@ -104,13 +105,6 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
     }
   }
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files)
-      setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...filesArray] }))
-    }
-  }
-
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -138,6 +132,21 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setFormData(prev => ({
+      ...prev,
+      attachments: [...prev.attachments, ...files]
+    }))
+  }
+
+  const removeAttachment = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }))
   }
 
   const validateForm = (): boolean => {
@@ -206,6 +215,20 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
         throw new Error(data.detail || 'Erro ao criar ticket')
       }
 
+      const ticketResponse = await res.json()
+      const ticketId = ticketResponse.id
+
+      // Upload de anexos se houver
+      if (formData.attachments.length > 0) {
+        try {
+          await uploadTicketAttachments(token, ticketId, formData.attachments)
+          console.log('✅ Anexos enviados com sucesso!')
+        } catch (err) {
+          console.error('Erro ao enviar anexos:', err)
+          // Não interrompe o fluxo - ticket já foi criado
+        }
+      }
+
       // Sucesso
       setShowSuccess(true)
       setFormData({
@@ -234,13 +257,6 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const removeAttachment = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
-    }))
   }
 
   return (

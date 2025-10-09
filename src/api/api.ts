@@ -39,6 +39,13 @@ interface TechRegisterData {
   is_active: boolean;
 }
 
+interface AdminRegisterData {
+  username: string;
+  email: string;
+  password: string;
+  full_name: string;
+}
+
 interface LoginData {
   username: string;
   password: string;
@@ -52,6 +59,11 @@ export const registerUser = async (data: RegisterData) => {
 // Função para registrar técnico
 export const registerTechnician = async (data: TechRegisterData) => {
   return await api.post("/register-technician", data);
+};
+
+// Função para registrar administrador
+export const registerAdmin = async (data: AdminRegisterData) => {
+  return await api.post("/admin-register", data);
 };
 
 // Função para login de usuário
@@ -107,11 +119,51 @@ export const changePassword = async (token: string, current_password: string, ne
   return await apiAuth.post('/users/change-password', { current_password, new_password });
 };
 
+// === AVATAR FUNCTIONS ===
+
 export const uploadAvatar = async (token: string, file: File) => {
   const apiAuth = apiWithAuth(token);
   const form = new FormData();
   form.append('file', file);
-  return await apiAuth.post('/users/profile/avatar', form, {
+  return await apiAuth.post('/avatars/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
+};
+
+export const getMyAvatar = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/avatars/me');
+};
+
+export const deleteMyAvatar = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.delete('/avatars/me');
+};
+
+// === TICKET ATTACHMENTS FUNCTIONS ===
+
+export const uploadTicketAttachments = async (token: string, ticketId: number, files: File[]) => {
+  const apiAuth = apiWithAuth(token);
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  
+  return await apiAuth.post(`/tickets/${ticketId}/attachments/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const getTicketAttachments = async (token: string, ticketId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/tickets/${ticketId}/attachments/`);
+};
+
+export const downloadTicketAttachment = (ticketId: number, filename: string) => {
+  // Download direto via URL
+  const url = `http://127.0.0.1:8000/tickets/${ticketId}/attachments/download/${filename}`;
+  window.open(url, '_blank');
+};
+
+export const deleteTicketAttachment = async (token: string, ticketId: number, filename: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.delete(`/tickets/${ticketId}/attachments/${filename}`);
 };

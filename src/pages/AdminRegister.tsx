@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import '../components/AdminRegister.css'
+import './AdminRegister.css'
 
 export default function AdminRegister() {
   const [formData, setFormData] = useState({
@@ -8,8 +8,7 @@ export default function AdminRegister() {
     email: '',
     password: '',
     confirmPassword: '',
-    full_name: '',
-    admin_key: ''
+    full_name: ''
   })
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -48,14 +47,6 @@ export default function AdminRegister() {
       setErrorMessage('Nome completo é obrigatório')
       return false
     }
-    if (!formData.admin_key.trim()) {
-      setErrorMessage('Chave de administrador é obrigatória')
-      return false
-    }
-    if (formData.admin_key !== 'ADMIN2024') {
-      setErrorMessage('Chave de administrador inválida')
-      return false
-    }
     return true
   }
 
@@ -72,13 +63,12 @@ export default function AdminRegister() {
         username: formData.username,
         email: formData.email,
         password: formData.password,
-        full_name: formData.full_name,
-        role: 'admin'
+        full_name: formData.full_name
       }
 
       console.log('Dados do administrador:', adminData)
 
-      const res = await fetch('http://127.0.0.1:8000/register', {
+      const res = await fetch('http://127.0.0.1:8000/admin-register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,19 +174,6 @@ export default function AdminRegister() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="admin_key">Chave de Administrador *</label>
-            <input
-              type="password"
-              id="admin_key"
-              name="admin_key"
-              value={formData.admin_key}
-              onChange={handleChange}
-              placeholder="Digite a chave de administrador"
-              required
-            />
-            <small className="form-hint">Chave necessária para criar conta de administrador</small>
-          </div>
 
           {errorMessage && (
             <div className="error-message">
