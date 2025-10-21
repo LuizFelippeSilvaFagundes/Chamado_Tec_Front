@@ -120,7 +120,6 @@ export const changePassword = async (token: string, current_password: string, ne
 };
 
 // === AVATAR FUNCTIONS ===
-
 export const uploadAvatar = async (token: string, file: File) => {
   const apiAuth = apiWithAuth(token);
   const form = new FormData();
@@ -129,7 +128,6 @@ export const uploadAvatar = async (token: string, file: File) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
-
 export const getMyAvatar = async (token: string) => {
   const apiAuth = apiWithAuth(token);
   return await apiAuth.get('/avatars/me');

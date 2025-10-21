@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { formatDateTime, isDateOverdue } from '../../utils/dateUtils'
-import { getTechTickets, updateTicketStatus } from '../../api/api'
+import { formatDateTime, formatDateOnly, isDateOverdue } from '../../utils/dateUtils'
+import { getAssignedTickets, updateTicketStatus } from '../../api/api'
 import './AssignedTickets.css'
 
 interface Ticket {
@@ -12,24 +12,95 @@ interface Ticket {
   status: 'open' | 'pending' | 'in-progress' | 'resolved' | 'closed'
   category: string
   created_at: string
+  updated_at?: string
   user_name: string
   equipment_id?: string
   sla_deadline: string
   estimated_time?: number
   assigned_technician_id?: number | null
   user_id: number
+  assigned_by_admin?: boolean
+  attachments?: any[]
+  comments?: any[]
+}
+
+const statusConfig = {
+  open: { label: 'Aberto', color: '#EF4444', icon: '❓' },
+  pending: { label: 'Pendente', color: '#F59E0B', icon: '⏳' },
+  'in-progress': { label: 'Em Atendimento', color: '#3B82F6', icon: '🕒' },
+  resolved: { label: 'Resolvido', color: '#10B981', icon: '✅' },
+  closed: { label: 'Fechado', color: '#6B7280', icon: '🔒' }
+}
+
+const priorityConfig = {
+  low: { label: 'Baixa', color: '#10B981' },
+  medium: { label: 'Média', color: '#F59E0B' },
+  high: { label: 'Alta', color: '#EF4444' },
+  critical: { label: 'Crítica', color: '#DC2626' }
+}
+
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('')
 }
 
 function AssignedTickets() {
   const { token, user } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'open' | 'pending' | 'in-progress' | 'resolved' | 'closed'>('all')
-   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [filters, setFilters] = useState({
+    status: '',
+    priority: '',
+    search: ''
+  })
 
   useEffect(() => {
     fetchAssignedTickets()
   }, [])
+
+  useEffect(() => {
+    filterTickets()
+  }, [filters, tickets])
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({type, message})
+    setTimeout(() => setNotification(null), 3000)
+  }
+
+  const filterTickets = () => {
+    let filtered = [...tickets]
+
+    if (filters.status) {
+      filtered = filtered.filter(ticket => ticket.status === filters.status)
+    }
+
+    if (filters.priority) {
+      filtered = filtered.filter(ticket => ticket.priority === filters.priority)
+    }
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      filtered = filtered.filter(ticket => 
+        ticket.title.toLowerCase().includes(searchLower) ||
+        ticket.description.toLowerCase().includes(searchLower) ||
+        ticket.user_name.toLowerCase().includes(searchLower)
+      )
+    }
+
+    setFilteredTickets(filtered)
+  }
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
 
   const fetchAssignedTickets = async () => {
     try {
@@ -39,16 +110,13 @@ function AssignedTickets() {
         throw new Error('Token não encontrado')
       }
 
-      // Buscar apenas tickets atribuídos ao usuário atual
-      const response = await getTechTickets(token)
+      // Buscar tickets atribuídos ao técnico atual
+      const response = await getAssignedTickets(token)
       const data = response.data
       console.log('🎫 Meus tickets atribuídos:', data)
       
-      // Filtrar apenas tickets atribuídos ao usuário atual
-      const myTickets = data.filter((ticket: any) => ticket.assigned_technician_id === user?.id)
-      
       // Converter os dados da API para o formato esperado pelo componente
-      const formattedTickets: Ticket[] = myTickets.map((ticket: any) => ({
+      const formattedTickets: Ticket[] = data.map((ticket: any) => ({
         id: ticket.id,
         title: ticket.title,
         description: ticket.description,
@@ -56,21 +124,29 @@ function AssignedTickets() {
         status: ticket.status,
         category: ticket.problem_type,
         created_at: ticket.created_at,
+        updated_at: ticket.updated_at || ticket.created_at,
         user_name: ticket.user?.full_name || ticket.user?.username || 'Usuário',
         equipment_id: ticket.equipment_id || 'N/A',
         sla_deadline: ticket.sla_deadline || ticket.created_at,
         estimated_time: ticket.estimated_time || 30,
         assigned_technician_id: ticket.assigned_technician_id,
-        user_id: ticket.user_id
+        user_id: ticket.user_id,
+        assigned_by_admin: ticket.assigned_by_admin,
+        attachments: ticket.attachments || [],
+        comments: ticket.comments || []
       }))
       
       setTickets(formattedTickets)
+      setFilteredTickets(formattedTickets)
     } catch (error) {
-      console.error('Erro ao buscar tickets:', error)
+      console.error('Erro ao buscar tickets atribuídos:', error)
+      setError('Erro ao carregar chamados atribuídos')
+      showNotification('error', 'Erro ao carregar chamados atribuídos')
+      
       // Fallback para API antiga se necessário
       console.log('Tentando API de fallback...')
       try {
-        const res = await fetch('http://127.0.0.1:8000/tickets?all=true', {
+        const res = await fetch('http://127.0.0.1:8000/tech/tickets/assigned', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         if (res.ok) {
@@ -83,14 +159,19 @@ function AssignedTickets() {
             status: ticket.status,
             category: ticket.problem_type,
             created_at: ticket.created_at,
-            user_name: ticket.user_name || 'Usuário',
+            updated_at: ticket.updated_at || ticket.created_at,
+            user_name: ticket.user?.full_name || ticket.user?.username || 'Usuário',
             equipment_id: ticket.equipment_id || 'N/A',
             sla_deadline: ticket.sla_deadline || ticket.created_at,
             estimated_time: ticket.estimated_time || 30,
             assigned_technician_id: ticket.assigned_technician_id,
-            user_id: ticket.user_id
+            user_id: ticket.user_id,
+            assigned_by_admin: ticket.assigned_by_admin,
+            attachments: ticket.attachments || [],
+            comments: ticket.comments || []
           }))
           setTickets(formattedTickets)
+          setFilteredTickets(formattedTickets)
         }
       } catch (fallbackError) {
         console.error('Erro no fallback:', fallbackError)
@@ -100,13 +181,15 @@ function AssignedTickets() {
     }
   }
 
-  // Função para exibir notificação
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({type, message})
-    setTimeout(() => setNotification(null), 3000)
+  const openTicketDetails = (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setShowModal(true)
   }
 
-  // Função removida - não precisamos mais de "pegar ticket"
+  const closeModal = () => {
+    setShowModal(false)
+    setSelectedTicket(null)
+  }
 
   // Função para atualizar status
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
@@ -121,50 +204,12 @@ function AssignedTickets() {
       await fetchAssignedTickets()
       
       showNotification('success', `✅ Status atualizado para: ${newStatus}`)
+      closeModal()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       showNotification('error', '❌ Erro ao atualizar status.')
     }
   }
-
-  const filteredTickets = tickets.filter(ticket => {
-    if (filter === 'all') return true
-    return ticket.status === filter
-  })
-
-  // Função para determinar cor do status
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'open': return 'status-new'
-      case 'pending': return 'status-pending'  
-      case 'in-progress': return 'status-progress'
-      case 'resolved': return 'status-resolved'
-      case 'closed': return 'status-closed'
-      default: return 'status-default'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'low': return 'priority-badge low'
-      case 'medium': return 'priority-badge medium'
-      case 'high': return 'priority-badge high'
-      case 'critical': return 'priority-badge critical'
-      default: return 'priority-badge low'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'status-badge pending'
-      case 'in-progress': return 'status-badge in-progress'
-      case 'resolved': return 'status-badge resolved'
-      case 'closed': return 'status-badge closed'
-      default: return 'status-badge pending'
-    }
-  }
-
-  // Usando as funções utilitárias para formatação de datas
 
   if (loading) {
     return (
@@ -177,7 +222,6 @@ function AssignedTickets() {
 
   return (
     <div className="assigned-tickets">
-      {/* Notificação */}
       {notification && (
         <div className={`notification ${notification.type}`}>
           {notification.message}
@@ -185,144 +229,339 @@ function AssignedTickets() {
       )}
       
       <div className="section-header">
-        <h2>🎫 Meus Chamados</h2>
-        <div className="section-actions">
-          <select 
-            value={filter} 
-            onChange={(e) => setFilter(e.target.value as any)}
-            className="filter-select"
-          >
-            <option value="all">Todos Meus</option>
-            <option value="pending">Pendentes</option>
-            <option value="in-progress">Em Andamento</option>
-            <option value="resolved">Resolvidos</option>
-            <option value="closed">Fechados</option>
-          </select>
-          <button className="action-btn primary" onClick={fetchAssignedTickets}>
-            🔄 Atualizar
-          </button>
-        </div>
+        <h1>📋 Gerenciar Chamados</h1>
+        <p className="section-subtitle">Chamados atribuídos pelo admin ou que você pegou da fila</p>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Meus Chamados</h3>
-          <div className="stat-value">{tickets.length}</div>
+      {error && (
+        <div className="error-message">
+          ❌ {error}
         </div>
-        <div className="stat-card">
-          <h3>⏳ Pendentes</h3>
-          <div className="stat-value new">{tickets.filter(t => t.status === 'pending').length}</div>
-        </div>
-        <div className="stat-card">
-          <h3>🔄 Em Andamento</h3>
-          <div className="stat-value progress">{tickets.filter(t => t.status === 'in-progress').length}</div>
-        </div>
-        <div className="stat-card">
-          <h3>✅ Resolvidos</h3>
-          <div className="stat-value resolved">{tickets.filter(t => t.status === 'resolved').length}</div>
-        </div>
-      </div>
+      )}
 
-      <div className="table-container">
-        <table className="tech-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Título</th>
-              <th>Usuário</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Criado em</th>
-              <th>SLA</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTickets.map((ticket) => (
-              <tr key={ticket.id} className={getStatusClass(ticket.status)}>
-                <td>#{ticket.id}</td>
-                <td>
-                  <div className="ticket-title">
-                    <strong>{ticket.title}</strong>
-                    <small>{ticket.category}</small>
-                  </div>
-                </td>
-                <td>{ticket.user_name}</td>
-                <td>
-                  <span className={getPriorityColor(ticket.priority)}>
-                    {ticket.priority}
-                  </span>
-                </td>
-                <td>
-                  <span className={getStatusColor(ticket.status)}>
-                    {ticket.status === 'open' ? 'Novo' : 
-                     ticket.status === 'in-progress' ? 'Em Andamento' : 
-                     ticket.status === 'resolved' ? 'Resolvido' : 
-                     ticket.status === 'closed' ? 'Fechado' : ticket.status}
-                  </span>
-                </td>
-                <td>
-                  <small>{formatDateTime(ticket.created_at)}</small>
-                </td>
-                <td>
-                  <div className="sla-info">
-                    <span className={isDateOverdue(ticket.sla_deadline) ? 'sla-overdue' : 'sla-normal'}>
-                      {formatDateTime(ticket.sla_deadline)}
-                    </span>
-                    {isDateOverdue(ticket.sla_deadline) && (
-                      <span className="sla-warning">⚠️ Vencido</span>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <div className="action-buttons">
-                    <button className="action-btn primary" title="Ver detalhes">
-                      👁️
-                    </button>
-                    
-                    {/* Ações baseadas no status */}
-                    {ticket.status === 'open' && (
-                      <button 
-                        className="action-btn secondary" 
-                        title="Iniciar atendimento"
-                        onClick={() => handleStatusChange(ticket.id, 'in-progress')}
-                      >
-                        ▶️ Iniciar
-                      </button>
-                    )}
-                    
-                    {ticket.status === 'in-progress' && (
-                      <button 
-                        className="action-btn success" 
-                        title="Marcar como resolvido"
-                        onClick={() => handleStatusChange(ticket.id, 'resolved')}
-                      >
-                        ✅ Resolver
-                      </button>
-                    )}
-                    
-                    {ticket.status === 'resolved' && (
-                      <button 
-                        className="action-btn info" 
-                        title="Fechar chamado"
-                        onClick={() => handleStatusChange(ticket.id, 'closed')}
-                      >
-                        🔒 Fechar
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {filteredTickets.length === 0 && (
+      {!loading && !error && tickets.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">📋</div>
-          <h3>Nenhum chamado encontrado</h3>
-          <p>Não há chamados que correspondam aos filtros selecionados.</p>
+          <h3>Nenhum chamado atribuído</h3>
+          <p>Você ainda não tem chamados atribuídos para gerenciar.</p>
+        </div>
+      )}
+
+      {!loading && !error && tickets.length > 0 && (
+        <>
+          {/* Filtros */}
+          <div className="filters-section">
+            <div className="search-box">
+              <input
+                type="text"
+                placeholder="🔍 Buscar por título, descrição ou usuário..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+              />
+            </div>
+
+            <div className="filter-controls">
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="">Todos os status</option>
+                <option value="open">Aberto</option>
+                <option value="pending">Pendente</option>
+                <option value="in-progress">Em Andamento</option>
+                <option value="resolved">Resolvido</option>
+                <option value="closed">Fechado</option>
+              </select>
+
+              <select
+                value={filters.priority}
+                onChange={(e) => handleFilterChange('priority', e.target.value)}
+              >
+                <option value="">Todas as prioridades</option>
+                <option value="low">Baixa</option>
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+                <option value="critical">Crítica</option>
+              </select>
+
+              <button className="action-btn primary" onClick={fetchAssignedTickets}>
+                🔄 Atualizar
+              </button>
+            </div>
+          </div>
+
+          {/* Cards de Chamados */}
+          <div className="tickets-grid">
+            {filteredTickets.length === 0 ? (
+              <div className="no-tickets">
+                <p>Nenhum chamado encontrado com os filtros aplicados.</p>
+              </div>
+            ) : (
+              filteredTickets.map(ticket => (
+                <div 
+                  key={ticket.id} 
+                  className="ticket-card"
+                  onClick={() => openTicketDetails(ticket)}
+                >
+                  <div className="ticket-header">
+                    <div className="ticket-title-section">
+                      <h3>{ticket.title}</h3>
+                      <div className="ticket-meta">
+                        <span className="ticket-id">#{String(ticket.id).padStart(5, '0')}</span>
+                        <span className="ticket-category">{ticket.category}</span>
+                        <span className="ticket-user">👤 {ticket.user_name}</span>
+                      </div>
+                    </div>
+                    <div className="ticket-status-section">
+                      <div className="status-badge" style={{ backgroundColor: statusConfig[ticket.status]?.color || '#6B7280' }}>
+                        {statusConfig[ticket.status]?.icon} {statusConfig[ticket.status]?.label}
+                      </div>
+                      <div className="priority-badge" style={{ backgroundColor: priorityConfig[ticket.priority]?.color || '#10B981' }}>
+                        {priorityConfig[ticket.priority]?.label}
+                      </div>
+                      {ticket.assigned_by_admin && <span className="admin-badge">👑 Admin</span>}
+                    </div>
+                  </div>
+
+                  <div className="ticket-body">
+                    <div className="ticket-description">
+                      {ticket.description.length > 150 
+                        ? `${ticket.description.substring(0, 150)}...` 
+                        : ticket.description
+                      }
+                    </div>
+
+                    <div className="ticket-details">
+                      <div className="detail-item">
+                        <strong>📅 Criado:</strong> {formatDateOnly(ticket.created_at)}
+                      </div>
+                      <div className="detail-item">
+                        <strong>🕒 SLA:</strong> 
+                        <span className={isDateOverdue(ticket.sla_deadline) ? 'sla-overdue' : 'sla-normal'}>
+                          {formatDateOnly(ticket.sla_deadline)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {ticket.comments && ticket.comments.length > 0 && (
+                      <div className="comments-preview">
+                        <span className="comments-count">
+                          💬 {ticket.comments.length} comentário(s)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="ticket-actions">
+                    <button 
+                      className="view-details-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openTicketDetails(ticket)
+                      }}
+                    >
+                      👁️ Ver Detalhes
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Modal de Detalhes */}
+      {showModal && selectedTicket && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedTicket.title}</h2>
+              <button className="close-btn" onClick={closeModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="ticket-info">
+                <div className="info-row">
+                  <span className="info-label">Status:</span>
+                  <span className="info-value">
+                    <div className="status-badge" style={{ backgroundColor: statusConfig[selectedTicket.status]?.color || '#6B7280' }}>
+                      {statusConfig[selectedTicket.status]?.icon} {statusConfig[selectedTicket.status]?.label}
+                    </div>
+                  </span>
+                </div>
+                
+                <div className="info-row">
+                  <span className="info-label">Prioridade:</span>
+                  <span className="info-value">
+                    <div className="priority-badge" style={{ backgroundColor: priorityConfig[selectedTicket.priority]?.color || '#10B981' }}>
+                      {priorityConfig[selectedTicket.priority]?.label}
+                    </div>
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Tipo:</span>
+                  <span className="info-value">{selectedTicket.category}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Usuário:</span>
+                  <span className="info-value">{selectedTicket.user_name}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Aberto em:</span>
+                  <span className="info-value">{formatDateTime(selectedTicket.created_at)}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Última atualização:</span>
+                  <span className="info-value">{formatDateTime(selectedTicket.updated_at || selectedTicket.created_at)}</span>
+                </div>
+
+                {selectedTicket.assigned_by_admin && (
+                  <div className="info-row">
+                    <span className="info-label">Atribuído por:</span>
+                    <span className="info-value">👑 Administrador</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="ticket-description-full">
+                <h4>Descrição</h4>
+                <p>{selectedTicket.description}</p>
+              </div>
+
+              {/* Seção de Progresso/Histórico */}
+              <div className="ticket-progress-section">
+                <h4>📊 Histórico do Chamado</h4>
+                <div className="progress-timeline">
+                  <div className="progress-item completed">
+                    <div className="progress-icon">✅</div>
+                    <div className="progress-content">
+                      <div className="progress-title">Chamado Aberto</div>
+                      <div className="progress-date">{formatDateTime(selectedTicket.created_at)}</div>
+                      <div className="progress-description">Chamado criado por {selectedTicket.user_name}.</div>
+                    </div>
+                  </div>
+
+                  {selectedTicket.assigned_technician_id && (
+                    <div className="progress-item completed">
+                      <div className="progress-icon">👨‍🔧</div>
+                      <div className="progress-content">
+                        <div className="progress-title">
+                          {selectedTicket.assigned_by_admin ? 'Atribuído pelo Admin' : 'Auto-Atribuído'}
+                        </div>
+                        <div className="progress-description">
+                          {selectedTicket.assigned_by_admin 
+                            ? 'O administrador atribuiu este chamado a você.' 
+                            : 'Você pegou este chamado da fila.'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'in-progress' && (
+                    <div className="progress-item current">
+                      <div className="progress-icon">🔧</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Em Atendimento</div>
+                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-description">Você está trabalhando na resolução deste chamado.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'resolved' && (
+                    <div className="progress-item completed">
+                      <div className="progress-icon">✅</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Chamado Resolvido</div>
+                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-description">Chamado concluído com sucesso!</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'closed' && (
+                    <div className="progress-item completed">
+                      <div className="progress-icon">🔒</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Chamado Fechado</div>
+                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-description">Chamado finalizado e arquivado.</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ações do Técnico */}
+              <div className="ticket-actions-modal">
+                {selectedTicket.status === 'open' && (
+                  <button 
+                    className="action-btn primary"
+                    onClick={() => handleStatusChange(selectedTicket.id, 'in-progress')}
+                  >
+                    ▶️ Iniciar Atendimento
+                  </button>
+                )}
+                {selectedTicket.status === 'in-progress' && (
+                  <button 
+                    className="action-btn success"
+                    onClick={() => handleStatusChange(selectedTicket.id, 'resolved')}
+                  >
+                    ✅ Marcar como Resolvido
+                  </button>
+                )}
+                {selectedTicket.status === 'resolved' && (
+                  <button 
+                    className="action-btn info"
+                    onClick={() => handleStatusChange(selectedTicket.id, 'closed')}
+                  >
+                    🔒 Fechar Chamado
+                  </button>
+                )}
+              </div>
+
+              {/* Anexos */}
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                <div className="ticket-attachments">
+                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
+                  <div className="attachments-list">
+                    {selectedTicket.attachments.map((attachment, index) => (
+                      <div key={index} className="attachment-item">
+                        <div className="attachment-icon">📄</div>
+                        <div className="attachment-info">
+                          <span className="attachment-name">{attachment.filename}</span>
+                          <span className="attachment-size">{(attachment.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Comentários */}
+              {selectedTicket.comments && selectedTicket.comments.length > 0 && (
+                <div className="comments-section">
+                  <h4>Comentários e Atualizações</h4>
+                  <div className="comments-list">
+                    {selectedTicket.comments.map(comment => (
+                      <div key={comment.id} className={`comment ${comment.is_technical ? 'technical' : ''}`}>
+                        <div className="comment-header">
+                          <span className="comment-author">{comment.author}</span>
+                          <span className="comment-date">{formatDateTime(comment.created_at)}</span>
+                          {comment.is_technical && <span className="technical-badge">Técnico</span>}
+                        </div>
+                        <p className="comment-text">{comment.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       .join('')
   }
 
-  const handleAvatarUpdate = (newAvatarUrl: string) => {
+  const handleAvatarUpdate = (newAvatarUrl: string | null) => {
     setUserAvatarUrl(newAvatarUrl)
     setShowAvatarModal(false)
   }
@@ -205,6 +205,8 @@ function ChamadosList() {
   const { token } = useAuth()
   const [chamados, setChamados] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedChamado, setSelectedChamado] = useState<any | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     fetchChamados()
@@ -218,38 +220,43 @@ function ChamadosList() {
         throw new Error('Token não encontrado')
       }
 
-      const res = await fetch('http://127.0.0.1:8000/tickets?all=true', {
+      // Buscar apenas chamados que já foram atribuídos a técnicos
+      const res = await fetch('http://127.0.0.1:8000/admin/tickets/assigned', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao buscar chamados')
+        throw new Error('Erro ao buscar chamados atribuídos')
       }
 
       const data = await res.json()
-      console.log('📋 Chamados recebidos pela API:', data)
+      console.log('📋 Chamados atribuídos recebidos pela API:', data)
       
-      const formattedChamados = data.map((ticket: any) => ({
+      // Filtrar apenas chamados que têm técnico atribuído
+      const assignedTickets = data.filter((ticket: any) => ticket.assigned_technician_id)
+      
+      const formattedChamados = assignedTickets.map((ticket: any) => ({
         id: ticket.id.toString().padStart(5, '0'),
         titulo: ticket.title,
         servico: ticket.problem_type,
         cliente: { 
-          nome: ticket.user_name || 'Usuário', 
-          avatar: (ticket.user_name || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()
+          nome: ticket.user?.full_name || ticket.user?.username || 'Usuário', 
+          avatar: (ticket.user?.full_name || ticket.user?.username || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()
         },
         tecnico: { 
-          nome: ticket.technician_name || 'Não atribuído', 
-          avatar: (ticket.technician_name || 'N').split(' ').map((n: string) => n[0]).join('').toUpperCase()
+          nome: ticket.assigned_technician?.full_name || ticket.assigned_technician?.username || 'Não atribuído', 
+          avatar: (ticket.assigned_technician?.full_name || ticket.assigned_technician?.username || 'N').split(' ').map((n: string) => n[0]).join('').toUpperCase()
         },
         status: getStatusLabel(ticket.status),
-        atualizado: formatDateTime(ticket.updated_at)
+        atualizado: formatDateTime(ticket.updated_at || ticket.created_at),
+        assigned_by_admin: ticket.assigned_by_admin || false
       }))
       
       setChamados(formattedChamados)
     } catch (error) {
-      console.error('Erro ao buscar chamados:', error)
+      console.error('Erro ao buscar chamados atribuídos:', error)
       // Fallback para dados mockados em caso de erro
       setChamados([
         {
@@ -258,8 +265,9 @@ function ChamadosList() {
           servico: 'Instalação de Rede',
           cliente: { nome: 'André Costa', avatar: 'AC' },
           tecnico: { nome: 'Carlos Silva', avatar: 'CS' },
-          status: 'Aberto',
-          atualizado: '13/04/25 20:56'
+          status: 'Em atendimento',
+          atualizado: '13/04/25 20:56',
+          assigned_by_admin: true
         }
       ])
     } finally {
@@ -292,6 +300,17 @@ function ChamadosList() {
     }
   }
 
+  const openChamadoModal = (chamado: any) => {
+    setSelectedChamado(chamado)
+    setShowModal(true)
+  }
+
+  const closeChamadoModal = () => {
+    setSelectedChamado(null)
+    setShowModal(false)
+  }
+
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Aberto':
@@ -307,70 +326,167 @@ function ChamadosList() {
 
   return (
     <div className="chamados-container">
-      <h1 className="page-title">Chamados</h1>
+      <h1 className="page-title">Chamados Atribuídos</h1>
+      <p className="page-subtitle">Chamados que já foram atribuídos aos técnicos</p>
       
-      <div className="chamados-table-container">
-        <div className="table-header">
-          <div className="header-cell">Atualizado em</div>
-          <div className="header-cell">Id</div>
-          <div className="header-cell">Título e Serviço</div>
-          <div className="header-cell">Cliente</div>
-          <div className="header-cell">Técnico</div>
-          <div className="header-cell">Status</div>
-          <div className="header-cell">Ações</div>
+      {loading ? (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Carregando chamados...</p>
         </div>
-
-        {loading ? (
-          <div className="loading-state">
-            <div className="loading-spinner"></div>
-            <p>Carregando chamados...</p>
-          </div>
-        ) : (
-          chamados.map((chamado) => (
-          <div 
-            key={chamado.id} 
-            className="table-row"
-            onClick={() => navigate(`/admin-ticket/${chamado.id}`)}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="table-cell">{chamado.atualizado}</div>
-            <div className="table-cell">{chamado.id}</div>
-            <div className="table-cell">
-              <div className="titulo-servico">
-                <div className="titulo">{chamado.titulo}</div>
-                <div className="servico">{chamado.servico}</div>
-              </div>
+      ) : (
+        <div className="chamados-cards-grid">
+          {chamados.length === 0 ? (
+            <div className="no-chamados">
+              <div className="no-chamados-icon">📋</div>
+              <h3>Nenhum chamado atribuído</h3>
+              <p>Não há chamados atribuídos aos técnicos no momento.</p>
             </div>
-            <div className="table-cell">
-              <div className="user-info">
-                <div className="user-avatar">{chamado.cliente.avatar}</div>
-                <span>{chamado.cliente.nome}</span>
-              </div>
-            </div>
-            <div className="table-cell">
-              <div className="user-info">
-                <div className="user-avatar">{chamado.tecnico.avatar}</div>
-                <span>{chamado.tecnico.nome}</span>
-              </div>
-            </div>
-            <div className="table-cell">
-              {getStatusBadge(chamado.status)}
-            </div>
-            <div className="table-cell">
-              <button 
-                className="edit-btn"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  navigate(`/admin-ticket/${chamado.id}`)
-                }}
+          ) : (
+            chamados.map((chamado) => (
+              <div 
+                key={chamado.id} 
+                className="chamado-card"
+                onClick={() => openChamadoModal(chamado)}
               >
-                ✏️
-              </button>
+                <div className="chamado-card-header">
+                  <div className="chamado-id">#{chamado.id}</div>
+                  <div className="status-container">
+                    {getStatusBadge(chamado.status)}
+                    {chamado.assigned_by_admin && (
+                      <span className="admin-assigned-badge">👑 Admin</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="chamado-card-content">
+                  <h3 className="chamado-title">{chamado.titulo}</h3>
+                  <p className="chamado-servico">{chamado.servico}</p>
+                  
+                  <div className="chamado-meta">
+                    <div className="chamado-date">
+                      <span className="meta-label">Atualizado:</span>
+                      <span className="meta-value">{chamado.atualizado}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="chamado-card-footer">
+                  <div className="chamado-users">
+                    <div className="user-info">
+                      <div className="user-avatar cliente">{chamado.cliente.avatar}</div>
+                      <div className="user-details">
+                        <span className="user-label">Cliente</span>
+                        <span className="user-name">{chamado.cliente.nome}</span>
+                      </div>
+                    </div>
+                    <div className="user-info">
+                      <div className="user-avatar tecnico">{chamado.tecnico.avatar}</div>
+                      <div className="user-details">
+                        <span className="user-label">Técnico</span>
+                        <span className="user-name">{chamado.tecnico.nome}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Modal de Detalhes */}
+      {showModal && selectedChamado && (
+        <div className="modal-overlay" onClick={closeChamadoModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedChamado.titulo}</h2>
+              <button className="close-btn" onClick={closeChamadoModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="chamado-info">
+                <div className="info-row">
+                  <span className="info-label">ID:</span>
+                  <span className="info-value">#{selectedChamado.id}</span>
+                </div>
+                
+                <div className="info-row">
+                  <span className="info-label">Serviço:</span>
+                  <span className="info-value">{selectedChamado.servico}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Status:</span>
+                  <span className="info-value">
+                    <div className="status-container">
+                      {getStatusBadge(selectedChamado.status)}
+                      {selectedChamado.assigned_by_admin && (
+                        <span className="admin-assigned-badge">👑 Admin</span>
+                      )}
+                    </div>
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Cliente:</span>
+                  <span className="info-value">
+                    <div className="user-info-modal">
+                      <div className="user-avatar">{selectedChamado.cliente.avatar}</div>
+                      <span>{selectedChamado.cliente.nome}</span>
+                    </div>
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Técnico:</span>
+                  <span className="info-value">
+                    <div className="user-info-modal">
+                      <div className="user-avatar">{selectedChamado.tecnico.avatar}</div>
+                      <span>{selectedChamado.tecnico.nome}</span>
+                    </div>
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Última atualização:</span>
+                  <span className="info-value">{selectedChamado.atualizado}</span>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  className="action-btn primary"
+                  onClick={() => {
+                    closeChamadoModal()
+                    navigate(`/admin-ticket/${selectedChamado.id}`)
+                  }}
+                >
+                  ✏️ Editar Chamado
+                </button>
+                <button 
+                  className="action-btn secondary"
+                  onClick={() => {
+                    closeChamadoModal()
+                    // Aqui você pode adicionar lógica para visualizar histórico
+                  }}
+                >
+                  📋 Ver Histórico
+                </button>
+                <button 
+                  className="action-btn info"
+                  onClick={() => {
+                    closeChamadoModal()
+                    // Aqui você pode adicionar lógica para acompanhar progresso
+                  }}
+                >
+                  📊 Acompanhar Progresso
+                </button>
+              </div>
             </div>
           </div>
-          ))
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -394,7 +510,7 @@ function TecnicosList() {
         throw new Error('Token não encontrado')
       }
 
-      const res = await fetch('http://127.0.0.1:8000/users?role=technician', {
+      const res = await fetch('http://127.0.0.1:8000/admin/tecnicos', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -412,7 +528,9 @@ function TecnicosList() {
         nome: tecnico.full_name || tecnico.username,
         email: tecnico.email,
         avatar: (tecnico.full_name || tecnico.username).split(' ').map((n: string) => n[0]).join('').toUpperCase(),
-        disponibilidade: tecnico.availability ? tecnico.availability.split(',').slice(0, 4) : ['08:00', '09:00', '10:00', '11:00']
+        disponibilidade: tecnico.availability ? tecnico.availability.split(',').slice(0, 4) : ['08:00', '09:00', '10:00', '11:00'],
+        is_approved: tecnico.is_approved,
+        is_active: tecnico.is_active
       }))
       
       setTecnicos(formattedTecnicos)
@@ -433,6 +551,31 @@ function TecnicosList() {
     }
   }
 
+  const handleApproveTechnician = async (technicianId: number) => {
+    try {
+      if (!token) {
+        throw new Error('Token não encontrado')
+      }
+
+      const res = await fetch(`http://127.0.0.1:8000/admin/technicians/${technicianId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!res.ok) {
+        throw new Error('Erro ao aprovar técnico')
+      }
+
+      alert('✅ Técnico aprovado com sucesso!')
+      fetchTecnicos() // Recarregar lista
+    } catch (error) {
+      console.error('Erro ao aprovar técnico:', error)
+      alert('❌ Erro ao aprovar técnico')
+    }
+  }
+
   return (
     <div className="tecnicos-container">
       <div className="page-header">
@@ -441,13 +584,6 @@ function TecnicosList() {
       </div>
       
       <div className="tecnicos-table-container">
-        <div className="table-header">
-          <div className="header-cell">Nome</div>
-          <div className="header-cell">E-mail</div>
-          <div className="header-cell">Disponibilidade</div>
-          <div className="header-cell">Ações</div>
-        </div>
-
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
@@ -469,22 +605,39 @@ function TecnicosList() {
               </div>
               <div className="table-cell">{tecnico.email}</div>
               <div className="table-cell">
-                <div className="disponibilidade">
-                  {tecnico.disponibilidade.map((horario: string, i: number) => (
-                    <span key={i} className="horario-badge">{horario}</span>
-                  ))}
-                </div>
+                {tecnico.is_approved ? (
+                  <span className="status-badge approved">✅ Aprovado</span>
+                ) : (
+                  <span className="status-badge pending">⏳ Pendente</span>
+                )}
               </div>
               <div className="table-cell">
-                <button 
-                  className="edit-btn"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    navigate(`/admin-technician/${tecnico.id}`)
-                  }}
-                >
-                  ✏️
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {!tecnico.is_approved && (
+                    <button 
+                      className="approve-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`Aprovar técnico ${tecnico.nome}?`)) {
+                          handleApproveTechnician(tecnico.id)
+                        }
+                      }}
+                      title="Aprovar técnico"
+                    >
+                      ✓ Aprovar
+                    </button>
+                  )}
+                  <button 
+                    className="edit-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      navigate(`/admin-technician/${tecnico.id}`)
+                    }}
+                    title="Ver detalhes"
+                  >
+                    👁️
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -514,6 +667,7 @@ interface Technician {
 
 // Componente para Chamados Abertos
 function ChamadosAbertosList() {
+  const { token } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
@@ -524,6 +678,8 @@ function ChamadosAbertosList() {
   const [statusFilter, setStatusFilter] = useState('todos')
   const [selectedTicketForModal, setSelectedTicketForModal] = useState<Ticket | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
+  const [showProgressModal, setShowProgressModal] = useState(false)
+  const [selectedTicketForProgress, setSelectedTicketForProgress] = useState<Ticket | null>(null)
 
   useEffect(() => {
     fetchOpenTickets()
@@ -573,13 +729,38 @@ function ChamadosAbertosList() {
     setShowTicketModal(false)
   }
 
+  const openProgressModal = (ticket: Ticket) => {
+    console.log('🔍 Abrindo modal de progresso para ticket:', ticket)
+    setSelectedTicketForProgress(ticket)
+    setShowProgressModal(true)
+    console.log('✅ Modal de progresso deve estar visível agora')
+  }
+
+  const closeProgressModal = () => {
+    setSelectedTicketForProgress(null)
+    setShowProgressModal(false)
+  }
+
   const fetchOpenTickets = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://127.0.0.1:8000/admin/tickets?status=open')
+      
+      if (!token) {
+        throw new Error('Token não encontrado')
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/admin/tickets?status=open', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('📋 Chamados abertos recebidos:', data)
         setTickets(data)
+      } else {
+        console.error('Erro ao buscar chamados abertos:', response.status)
       }
     } catch (error) {
       console.error('Erro ao buscar chamados abertos:', error)
@@ -591,7 +772,16 @@ function ChamadosAbertosList() {
   const fetchTechnicians = async () => {
     try {
       console.log('🔍 Buscando técnicos...')
-      const response = await fetch('http://127.0.0.1:8000/admin/tecnicos')
+      
+      if (!token) {
+        throw new Error('Token não encontrado')
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/admin/tecnicos', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       console.log('📡 Response status:', response.status)
       
       if (response.ok) {
@@ -639,6 +829,7 @@ function ChamadosAbertosList() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ technician_id: technicianId })
       })
@@ -652,7 +843,7 @@ function ChamadosAbertosList() {
         setShowAssignModal(false)
         setSelectedTicket(null)
         fetchOpenTickets() // Recarregar a lista
-        alert('Chamado atribuído com sucesso!')
+        alert('✅ Chamado atribuído com sucesso! O técnico receberá uma notificação.')
       } else {
         const errorData = await response.text()
         console.error('❌ Erro na resposta:', response.status, errorData)
@@ -769,15 +960,17 @@ function ChamadosAbertosList() {
                     >
                       ✏️
                     </button>
-                    <button 
-                      className="start-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleAssignTicket(ticket)
-                      }}
-                    >
-                      🕒 Iniciar
-                    </button>
+                    {!ticket.assigned_technician && (
+                      <button 
+                        className="start-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleAssignTicket(ticket)
+                        }}
+                      >
+                        🕒 Iniciar
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -866,15 +1059,29 @@ function ChamadosAbertosList() {
                 <div className="ticket-actions-section">
                   <h3>Ações</h3>
                   <div className="action-buttons">
-                    <button 
-                      className="action-btn primary"
-                      onClick={() => {
-                        closeTicketModal()
-                        handleAssignTicket(selectedTicketForModal)
-                      }}
-                    >
-                      🕒 Atribuir Técnico
-                    </button>
+                    {!selectedTicketForModal.assigned_technician ? (
+                      <button 
+                        className="action-btn primary"
+                        onClick={() => {
+                          closeTicketModal()
+                          handleAssignTicket(selectedTicketForModal)
+                        }}
+                      >
+                        🕒 Atribuir Técnico
+                      </button>
+                    ) : (
+                      <button 
+                        className="action-btn info"
+                        onClick={() => {
+                          console.log('🖱️ Botão Acompanhar Progresso clicado!')
+                          console.log('📋 Ticket selecionado:', selectedTicketForModal)
+                          closeTicketModal()
+                          openProgressModal(selectedTicketForModal)
+                        }}
+                      >
+                        📊 Acompanhar Progresso
+                      </button>
+                    )}
                     <button 
                       className="action-btn secondary"
                       onClick={() => {
@@ -961,6 +1168,104 @@ function ChamadosAbertosList() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Acompanhar Progresso */}
+      {showProgressModal && selectedTicketForProgress && (
+        <div className="modal-overlay" onClick={closeProgressModal}>
+          <div className="modal-content progress-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📊 Acompanhar Progresso</h2>
+              <button className="close-btn" onClick={closeProgressModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="progress-header">
+                <h3>{selectedTicketForProgress.title}</h3>
+                <div className="ticket-status-info">
+                  <span className="ticket-id">#{String(selectedTicketForProgress.id).padStart(5, '0')}</span>
+                  <span className="current-status">
+                    {selectedTicketForProgress.assigned_technician ? 'Atribuído' : 'Aberto'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="progress-timeline">
+                <h4>📋 Histórico do Chamado</h4>
+                
+                <div className="timeline-item">
+                  <div className="timeline-marker created"></div>
+                  <div className="timeline-content">
+                    <div className="timeline-header">
+                      <span className="timeline-title">Chamado Criado</span>
+                      <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
+                    </div>
+                    <div className="timeline-description">
+                      <p><strong>Descrição:</strong> {selectedTicketForProgress.description}</p>
+                      <p><strong>Solicitado por:</strong> Usuário do sistema</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedTicketForProgress.assigned_technician && (
+                  <div className="timeline-item">
+                    <div className="timeline-marker assigned"></div>
+                    <div className="timeline-content">
+                      <div className="timeline-header">
+                        <span className="timeline-title">Chamado Atribuído</span>
+                        <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
+                      </div>
+                      <div className="timeline-description">
+                        <p><strong>Atribuído para:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
+                        <p><strong>Atribuído por:</strong> Administrador</p>
+                        <div className="technician-info">
+                          <div className="tech-avatar-small">
+                            {getInitials(selectedTicketForProgress.assigned_technician.full_name)}
+                          </div>
+                          <span>{selectedTicketForProgress.assigned_technician.full_name}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="timeline-item current">
+                  <div className="timeline-marker current"></div>
+                  <div className="timeline-content">
+                    <div className="timeline-header">
+                      <span className="timeline-title">Status Atual</span>
+                      <span className="timeline-date">Agora</span>
+                    </div>
+                    <div className="timeline-description">
+                      <p><strong>Status:</strong> {selectedTicketForProgress.assigned_technician ? 'Em Andamento' : 'Aguardando Atribuição'}</p>
+                      {selectedTicketForProgress.assigned_technician && (
+                        <p><strong>Técnico Responsável:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="progress-summary">
+                <h4>📈 Resumo</h4>
+                <div className="summary-grid">
+                  <div className="summary-item">
+                    <span className="summary-label">Tempo Decorrido</span>
+                    <span className="summary-value">{Math.ceil((Date.now() - new Date(selectedTicketForProgress.created_at).getTime()) / (1000 * 60 * 60))} horas</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Status</span>
+                    <span className="summary-value">{selectedTicketForProgress.assigned_technician ? 'Em Andamento' : 'Aguardando'}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Prioridade</span>
+                    <span className="summary-value">Média</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTime } from '../../utils/dateUtils'
 import { getAvailableTickets, takeTicket, updateTicketStatus } from '../../api/api'
+import './AssignedTickets.css'
 
 interface TicketDetail {
   id: number
@@ -30,17 +31,47 @@ interface TicketHistory {
   technician_name: string
 }
 
-function TicketManagement() {
+interface TicketManagementProps {
+  onTicketTaken?: () => void
+}
+
+function TicketManagement({ onTicketTaken }: TicketManagementProps) {
   const { token, user } = useAuth()
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null)
   const [tickets, setTickets] = useState<TicketDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [takingTicket, setTakingTicket] = useState<number | null>(null)
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     fetchTickets()
   }, [])
+  
+  const statusConfig = {
+    open: { label: 'Aberto', color: '#EF4444', icon: '❓' },
+    pending: { label: 'Pendente', color: '#F59E0B', icon: '⏳' },
+    'in-progress': { label: 'Em Atendimento', color: '#3B82F6', icon: '🕒' },
+    resolved: { label: 'Resolvido', color: '#10B981', icon: '✅' },
+    closed: { label: 'Fechado', color: '#6B7280', icon: '🔒' }
+  }
+
+  const priorityConfig = {
+    low: { label: 'Baixa', color: '#10B981' },
+    medium: { label: 'Média', color: '#F59E0B' },
+    high: { label: 'Alta', color: '#EF4444' },
+    critical: { label: 'Crítica', color: '#DC2626' }
+  }
+
+  const openTicketDetails = (ticket: TicketDetail) => {
+    setSelectedTicket(ticket)
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setSelectedTicket(null)
+  }
 
   // Função para exibir notificação
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -125,7 +156,14 @@ function TicketManagement() {
         setSelectedTicket(null)
       }
       
-      showNotification('success', '✅ Chamado atribuído! Agora está em "Meus Chamados"')
+      showNotification('success', '✅ Chamado atribuído! Redirecionando para "Meus Chamados"...')
+      
+      // Redirecionar para "Meus Chamados" após 1.5 segundos
+      setTimeout(() => {
+        if (onTicketTaken) {
+          onTicketTaken()
+        }
+      }, 1500)
     } catch (error) {
       console.error('Erro ao pegar ticket:', error)
       showNotification('error', '❌ Erro ao pegar chamado. Tente novamente.')
@@ -133,28 +171,6 @@ function TicketManagement() {
       setTakingTicket(null)
     }
   }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'low': return 'priority-badge low'
-      case 'medium': return 'priority-badge medium'
-      case 'high': return 'priority-badge high'
-      case 'critical': return 'priority-badge critical'
-      default: return 'priority-badge low'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'status-badge pending'
-      case 'in-progress': return 'status-badge in-progress'
-      case 'resolved': return 'status-badge resolved'
-      case 'closed': return 'status-badge closed'
-      default: return 'status-badge pending'
-    }
-  }
-
-  // Usando a função utilitária para formatação de datas
 
   if (loading) {
     return (
@@ -166,7 +182,7 @@ function TicketManagement() {
   }
 
   return (
-    <div className="ticket-management">
+    <div className="assigned-tickets">
       {/* Notificação */}
       {notification && (
         <div className={`notification ${notification.type}`}>
@@ -175,144 +191,227 @@ function TicketManagement() {
       )}
 
       <div className="section-header">
-        <h2>📋 Fila de Chamados</h2>
-        <div className="section-actions">
-          <button className="action-btn primary" onClick={fetchTickets}>
-            🔄 Atualizar Fila
-          </button>
-        </div>
+        <h1>📥 Fila de Chamados</h1>
+        <p className="section-subtitle">Chamados disponíveis para você pegar</p>
       </div>
 
-      <div className="management-layout">
-        {/* Lista de chamados */}
-        <div className="tickets-list">
-          <h3>📥 Fila de Chamados ({tickets.length})</h3>
+      {!loading && tickets.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <h3>Nenhum chamado na fila</h3>
+          <p>Todos os chamados foram atribuídos ou não há chamados abertos no momento.</p>
+        </div>
+      )}
+
+      {!loading && tickets.length > 0 && (
+        <>
+          {/* Filtros */}
+          <div className="filters-section">
+            <div className="filter-controls">
+              <button className="action-btn primary" onClick={fetchTickets}>
+                🔄 Atualizar Fila
+              </button>
+            </div>
+          </div>
+
+          {/* Cards de Chamados */}
           <div className="tickets-grid">
-            {tickets.map((ticket) => (
+            {tickets.map(ticket => (
               <div 
-                key={ticket.id}
-                className={`ticket-card ${selectedTicket?.id === ticket.id ? 'selected' : ''}`}
-                onClick={() => setSelectedTicket(ticket)}
+                key={ticket.id} 
+                className="ticket-card"
+                onClick={() => openTicketDetails(ticket)}
               >
                 <div className="ticket-header">
-                  <span className="ticket-id">#{ticket.id}</span>
-                  <span className={getPriorityColor(ticket.priority)}>
-                    {ticket.priority}
-                  </span>
+                  <div className="ticket-title-section">
+                    <h3>{ticket.title}</h3>
+                    <div className="ticket-meta">
+                      <span className="ticket-id">#{String(ticket.id).padStart(5, '0')}</span>
+                      <span className="ticket-category">{ticket.category}</span>
+                      <span className="ticket-user">👤 {ticket.user_name}</span>
+                    </div>
+                  </div>
+                  <div className="ticket-status-section">
+                    <div className="status-badge" style={{ backgroundColor: statusConfig[ticket.status as keyof typeof statusConfig]?.color || '#6B7280' }}>
+                      {statusConfig[ticket.status as keyof typeof statusConfig]?.icon} {statusConfig[ticket.status as keyof typeof statusConfig]?.label}
+                    </div>
+                    <div className="priority-badge" style={{ backgroundColor: priorityConfig[ticket.priority]?.color || '#10B981' }}>
+                      {priorityConfig[ticket.priority]?.label}
+                    </div>
+                  </div>
                 </div>
-                <h4>{ticket.title}</h4>
-                <p className="ticket-user">{ticket.user_name}</p>
-                <span className={getStatusColor(ticket.status)}>
-                  {ticket.status}
-                </span>
+
+                <div className="ticket-body">
+                  <div className="ticket-description">
+                    {ticket.description.length > 150 
+                      ? `${ticket.description.substring(0, 150)}...` 
+                      : ticket.description
+                    }
+                  </div>
+
+                  <div className="ticket-details">
+                    <div className="detail-item">
+                      <strong>📅 Criado:</strong> {formatDateTime(ticket.created_at).split(' ')[0]}
+                    </div>
+                    <div className="detail-item">
+                      <strong>⏰ Tempo estimado:</strong> {ticket.estimated_time} min
+                    </div>
+                  </div>
+                </div>
+
+                <div className="ticket-actions">
+                  <button 
+                    className="view-details-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openTicketDetails(ticket)
+                    }}
+                  >
+                    👁️ Ver Detalhes
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </>
+      )}
 
-        {/* Detalhes do chamado selecionado */}
-        {selectedTicket && (
-          <div className="ticket-details">
-            <div className="details-header">
-              <h3>Detalhes do Chamado #{selectedTicket.id}</h3>
-              <span className={getStatusColor(selectedTicket.status)}>
-                {selectedTicket.status}
-              </span>
+      {/* Modal de Detalhes */}
+      {showModal && selectedTicket && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedTicket.title}</h2>
+              <button className="close-btn" onClick={closeModal}>✕</button>
             </div>
 
-            <div className="details-content">
-              <div className="detail-section">
-                <h4>📋 Informações Básicas</h4>
-                <div className="detail-grid">
-                  <div className="detail-item">
-                    <label>Título:</label>
-                    <span>{selectedTicket.title}</span>
+            <div className="modal-body">
+              <div className="ticket-info">
+                <div className="info-row">
+                  <span className="info-label">Status:</span>
+                  <span className="info-value">
+                    <div className="status-badge" style={{ backgroundColor: statusConfig[selectedTicket.status as keyof typeof statusConfig]?.color || '#6B7280' }}>
+                      {statusConfig[selectedTicket.status as keyof typeof statusConfig]?.icon} {statusConfig[selectedTicket.status as keyof typeof statusConfig]?.label}
+                    </div>
+                  </span>
+                </div>
+                
+                <div className="info-row">
+                  <span className="info-label">Prioridade:</span>
+                  <span className="info-value">
+                    <div className="priority-badge" style={{ backgroundColor: priorityConfig[selectedTicket.priority]?.color || '#10B981' }}>
+                      {priorityConfig[selectedTicket.priority]?.label}
+                    </div>
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Tipo:</span>
+                  <span className="info-value">{selectedTicket.category}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Usuário:</span>
+                  <span className="info-value">{selectedTicket.user_name}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">E-mail:</span>
+                  <span className="info-value">{selectedTicket.user_email}</span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Aberto em:</span>
+                  <span className="info-value">{formatDateTime(selectedTicket.created_at)}</span>
+                </div>
+
+                {selectedTicket.equipment_id && (
+                  <div className="info-row">
+                    <span className="info-label">Equipamento:</span>
+                    <span className="info-value">{selectedTicket.equipment_id}</span>
                   </div>
-                  <div className="detail-item">
-                    <label>Categoria:</label>
-                    <span>{selectedTicket.category}</span>
+                )}
+              </div>
+
+              <div className="ticket-description-full">
+                <h4>Descrição</h4>
+                <p>{selectedTicket.description}</p>
+              </div>
+
+              {/* Seção de Progresso/Histórico */}
+              <div className="ticket-progress-section">
+                <h4>📊 Histórico do Chamado</h4>
+                <div className="progress-timeline">
+                  <div className="progress-item completed">
+                    <div className="progress-icon">✅</div>
+                    <div className="progress-content">
+                      <div className="progress-title">Chamado Aberto</div>
+                      <div className="progress-date">{formatDateTime(selectedTicket.created_at)}</div>
+                      <div className="progress-description">Chamado criado por {selectedTicket.user_name}.</div>
+                    </div>
                   </div>
-                  <div className="detail-item">
-                    <label>Prioridade:</label>
-                    <span className={getPriorityColor(selectedTicket.priority)}>
-                      {selectedTicket.priority}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Equipamento:</label>
-                    <span>{selectedTicket.equipment_id || 'N/A'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Usuário:</label>
-                    <span>{selectedTicket.user_name} ({selectedTicket.user_email})</span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Criado em:</label>
-                    <span>{formatDateTime(selectedTicket.created_at)}</span>
+
+                  <div className="progress-item current">
+                    <div className="progress-icon">⏳</div>
+                    <div className="progress-content">
+                      <div className="progress-title">Na Fila de Atendimento</div>
+                      <div className="progress-description">Este chamado está aguardando um técnico pegar da fila.</div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="detail-section">
-                <h4>📝 Descrição</h4>
-                <div className="description-box">
-                  {selectedTicket.description}
-                </div>
+              {/* Ações do Técnico */}
+              <div className="ticket-actions-modal">
+                <button 
+                  className="action-btn take-btn"
+                  onClick={handleTakeTicket}
+                  disabled={takingTicket === selectedTicket.id}
+                >
+                  {takingTicket === selectedTicket.id ? '⏳ Pegando...' : '🎯 Pegar Este Chamado'}
+                </button>
               </div>
 
-              <div className="detail-section">
-                <h4>📎 Anexos</h4>
-                <div className="attachments-list">
-                  {selectedTicket.attachments.length > 0 ? (
-                    selectedTicket.attachments.map((attachment, index) => (
+              {/* Anexos */}
+              {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                <div className="ticket-attachments">
+                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
+                  <div className="attachments-list">
+                    {selectedTicket.attachments.map((attachment: any, index: number) => (
                       <div key={index} className="attachment-item">
-                        📎 {attachment}
+                        <div className="attachment-icon">📄</div>
+                        <div className="attachment-info">
+                          <span className="attachment-name">
+                            {typeof attachment === 'string' ? attachment : attachment.filename || 'Arquivo anexo'}
+                          </span>
+                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <p className="no-attachments">Nenhum anexo</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Ações do técnico */}
-              <div className="detail-section">
-                <h4>🎯 Pegar da Fila</h4>
-                <div className="actions-form">
-                  <div className="take-ticket-section">
-                    <p>Este chamado está na fila de espera. Clique no botão abaixo para assumir o atendimento:</p>
-                    <button 
-                      className="action-btn take-btn"
-                      onClick={handleTakeTicket}
-                      disabled={takingTicket === selectedTicket.id}
-                    >
-                      {takingTicket === selectedTicket.id ? '⏳ Pegando...' : '🎯 Pegar Este Chamado'}
-                    </button>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Histórico */}
-              <div className="detail-section">
-                <h4>📜 Histórico</h4>
-                <div className="history-timeline">
-                  {selectedTicket.history.map((entry) => (
-                    <div key={entry.id} className="history-item">
-                      <div className="history-time">
-                        {formatDateTime(entry.timestamp)}
+              {selectedTicket.history && selectedTicket.history.length > 0 && (
+                <div className="comments-section">
+                  <h4>📜 Histórico</h4>
+                  <div className="comments-list">
+                    {selectedTicket.history.map(entry => (
+                      <div key={entry.id} className="comment">
+                        <div className="comment-header">
+                          <span className="comment-author">{entry.technician_name}</span>
+                          <span className="comment-date">{formatDateTime(entry.timestamp)}</span>
+                        </div>
+                        <p className="comment-text">{entry.description}</p>
                       </div>
-                      <div className="history-content">
-                        <strong>{entry.technician_name}</strong>
-                        <p>{entry.description}</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

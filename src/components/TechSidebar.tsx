@@ -1,9 +1,11 @@
 import './TechSidebar.css'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 type ActiveSection = 
   | 'ticket-management'
   | 'assigned-tickets'
+  | 'admin-assigned-tickets'
   | 'equipment-history'
   | 'reports'
   | 'sla-monitoring'
@@ -16,7 +18,13 @@ interface TechSidebarProps {
 }
 
 function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
   
   const menuItems = [
     {
@@ -30,6 +38,12 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
       label: 'Meus Chamados',
       icon: '🎫',
       description: 'Chamados que você pegou para resolver'
+    },
+    {
+      id: 'admin-assigned-tickets' as ActiveSection,
+      label: 'Chamados do Admin',
+      icon: '👑',
+      description: 'Chamados atribuídos pelo administrador'
     },
     {
       id: 'equipment-history' as ActiveSection,
@@ -96,6 +110,11 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
             <span className="info-value">12</span>
           </div>
         </div>
+        
+        <button className="logout-btn" onClick={handleLogout}>
+          <span className="logout-icon">🚪</span>
+          <span className="logout-text">Sair</span>
+        </button>
       </div>
     </aside>
   )

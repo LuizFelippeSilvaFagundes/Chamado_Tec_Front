@@ -1,5 +1,5 @@
 .my-tickets {
-  max-width: 1000px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 0 1rem;
   width: 100%;
@@ -1045,4 +1045,126 @@
 .download-btn:hover {
   background: #2563eb;
   transform: scale(1.1);
+}
+
+/* Seção de Progresso */
+.ticket-progress-section {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 1.5rem;
+  border: 2px solid #e2e8f0;
+}
+
+.ticket-progress-section h4 {
+  margin: 0 0 1.5rem 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.progress-timeline {
+  position: relative;
+  padding-left: 2.5rem;
+}
+
+.progress-timeline::before {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, #3b82f6 0%, #e2e8f0 100%);
+}
+
+.progress-item {
+  position: relative;
+  padding-bottom: 2rem;
+  opacity: 0.5;
+}
+
+.progress-item.completed {
+  opacity: 1;
+}
+
+.progress-item.current {
+  opacity: 1;
+}
+
+.progress-item:last-child {
+  padding-bottom: 0;
+}
+
+.progress-icon {
+  position: absolute;
+  left: -2rem;
+  top: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: white;
+  border: 3px solid #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  z-index: 1;
+}
+
+.progress-item.completed .progress-icon {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.progress-item.current .progress-icon {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.progress-content {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.progress-item.current .progress-content {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.progress-title {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.progress-date {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.progress-description {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.progress-description strong {
+  color: #1e293b;
+  font-weight: 600;
 }

@@ -13,13 +13,14 @@
 
 .main-content {
   flex: 1;
-  padding: 16px 24px 40px 24px;
+  padding: 8px 16px 40px 16px;
   overflow-y: auto;
   background: transparent;
   margin: 0;
   border-radius: 0;
   box-shadow: none;
-  min-height: calc(100vh - 80px);
+  height: 100vh;
+  max-width: 1800px;
 }
 
 /* Cards de estatísticas - Layout mais aberto */
@@ -43,6 +44,7 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
+
 
 .stat-card h3 {
   margin: 0 0 8px 0;

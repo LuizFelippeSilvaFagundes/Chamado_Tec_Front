@@ -375,6 +375,65 @@ function MyTickets() {
                 <p>{selectedTicket.description}</p>
               </div>
 
+              {/* Seção de Progresso */}
+              <div className="ticket-progress-section">
+                <h4>📊 Acompanhar Progresso</h4>
+                <div className="progress-timeline">
+                  <div className="progress-item completed">
+                    <div className="progress-icon">✅</div>
+                    <div className="progress-content">
+                      <div className="progress-title">Chamado Aberto</div>
+                      <div className="progress-date">{formatDateTime(selectedTicket.created_at)}</div>
+                      <div className="progress-description">Seu chamado foi criado e está aguardando atribuição a um técnico.</div>
+                    </div>
+                  </div>
+
+                  {selectedTicket.assigned_tech && (
+                    <div className={`progress-item ${selectedTicket.status !== 'open' ? 'completed' : 'current'}`}>
+                      <div className="progress-icon">👨‍🔧</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Técnico Atribuído</div>
+                        <div className="progress-description">
+                          O técnico <strong>{selectedTicket.assigned_tech.full_name}</strong> foi atribuído ao seu chamado.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'in-progress' && (
+                    <div className="progress-item current">
+                      <div className="progress-icon">🔧</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Em Atendimento</div>
+                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-description">O técnico está trabalhando na resolução do seu chamado.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'resolved' && (
+                    <div className="progress-item completed">
+                      <div className="progress-icon">✅</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Chamado Resolvido</div>
+                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-description">Seu chamado foi concluído com sucesso!</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTicket.status === 'open' && !selectedTicket.assigned_tech && (
+                    <div className="progress-item current">
+                      <div className="progress-icon">⏳</div>
+                      <div className="progress-content">
+                        <div className="progress-title">Aguardando Atribuição</div>
+                        <div className="progress-description">Estamos procurando o técnico mais adequado para atender seu chamado.</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Anexos */}
               {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
                 <div className="ticket-attachments">
@@ -430,18 +489,27 @@ function MyTickets() {
 
               {selectedTicket.comments.length > 0 && (
                 <div className="comments-section">
-                  <h4>Comentários e Atualizações</h4>
+                  <h4>💬 Atualizações do Técnico</h4>
                   <div className="comments-list">
                     {selectedTicket.comments.map(comment => (
                       <div key={comment.id} className={`comment ${comment.is_technical ? 'technical' : ''}`}>
                         <div className="comment-header">
-                          <span className="comment-author">{comment.author}</span>
+                          <span className="comment-author">
+                            {comment.is_technical ? '👨‍🔧 ' : '👤 '}{comment.author}
+                          </span>
                           <span className="comment-date">{formatDateTime(comment.created_at)}</span>
-                          {comment.is_technical && <span className="technical-badge">Técnico</span>}
+                          {comment.is_technical && <span className="technical-badge">✓ Técnico</span>}
                         </div>
                         <p className="comment-text">{comment.text}</p>
                       </div>
                     ))}
+                  </div>
+                  <div className="comments-info">
+                    <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '1rem', textAlign: 'center' }}>
+                      {selectedTicket.comments.filter(c => c.is_technical).length > 0 
+                        ? '✓ O técnico já atualizou seu chamado' 
+                        : 'Aguardando atualizações do técnico'}
+                    </p>
                   </div>
                 </div>
               )}
