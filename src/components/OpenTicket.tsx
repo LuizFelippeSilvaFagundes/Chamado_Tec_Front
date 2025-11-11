@@ -1,6 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { uploadTicketAttachments } from '../api/api'
+import FileUpload, { type UploadedFile } from './FileUpload'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import LoadingSpinner from './LoadingSpinner'
 import './OpenTicket.css'
 
 interface TicketForm {
@@ -11,7 +15,7 @@ interface TicketForm {
   priority: 'low' | 'medium' | 'high'
   equipment: string
   urgency: string
-  attachments: File[]
+  attachments: UploadedFile[]
 }
 
 interface OpenTicketProps {
@@ -63,13 +67,6 @@ const equipmentTypes = [
   'Outros'
 ]
 
-const urgencyLevels = [
-  { value: 'low', label: 'Baixa', description: 'Pode aguardar até 48h', color: '#10b981' },
-  { value: 'medium', label: 'Média', description: 'Deve ser resolvido em 24h', color: '#f59e0b' },
-  { value: 'high', label: 'Alta', description: 'Deve ser resolvido em 4h', color: '#ef4444' },
-  { value: 'critical', label: 'Crítica', description: 'Deve ser resolvido imediatamente', color: '#dc2626' }
-]
-
 const priorities = [
   { value: 'low', label: 'Baixa', color: '#10b981' },
   { value: 'medium', label: 'Média', color: '#f59e0b' },
@@ -77,7 +74,7 @@ const priorities = [
 ]
 
 function OpenTicket({ onTicketCreated }: OpenTicketProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { showSuccess: showSuccessToast, showError: showErrorToast } = useToast()
   const [formData, setFormData] = useState<TicketForm>({
     title: '',
     description: '',
@@ -90,10 +87,7 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
   const [errors, setErrors] = useState<Partial<TicketForm>>({})
-  const [dragActive, setDragActive] = useState(false)
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -105,48 +99,8 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
     }
   }
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const filesArray = Array.from(e.dataTransfer.files)
-      setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...filesArray] }))
-    }
-  }
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setFormData(prev => ({
-      ...prev,
-      attachments: [...prev.attachments, ...files]
-    }))
-  }
-
-  const removeAttachment = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
-    }))
+  const handleFilesChange = (files: UploadedFile[]) => {
+    setFormData(prev => ({ ...prev, attachments: files }))
   }
 
   const validateForm = (): boolean => {
@@ -212,7 +166,8 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.detail || 'Erro ao criar ticket')
+        const errorMessage = handleApiError(data)
+        throw new Error(errorMessage)
       }
 
       const ticketResponse = await res.json()
@@ -221,16 +176,19 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
       // Upload de anexos se houver
       if (formData.attachments.length > 0) {
         try {
-          await uploadTicketAttachments(token, ticketId, formData.attachments)
+          const filesToUpload = formData.attachments.map(uf => uf.file)
+          await uploadTicketAttachments(token, ticketId, filesToUpload)
           console.log('✅ Anexos enviados com sucesso!')
         } catch (err) {
           console.error('Erro ao enviar anexos:', err)
+          const errorMessage = handleApiError(err)
+          showErrorToast(`Chamado criado, mas houve erro ao enviar anexos: ${errorMessage}`)
           // Não interrompe o fluxo - ticket já foi criado
         }
       }
 
       // Sucesso
-      setShowSuccess(true)
+      showSuccessToast('Chamado criado com sucesso!')
       setFormData({
         title: '',
         description: '',
@@ -242,21 +200,28 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
         attachments: []
       })
       
-      // Esconder mensagem de sucesso após 3 segundos e navegar para "Meus Chamados"
+      // Navegar para "Meus Chamados" após um breve delay
       setTimeout(() => {
-        setShowSuccess(false)
-        // Chamar callback para navegar para "Meus Chamados"
         if (onTicketCreated) {
           onTicketCreated()
         }
-      }, 2000) // Reduzido para 2 segundos para melhor UX
+      }, 1000)
       
     } catch (error) {
       console.error('Erro ao enviar chamado:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Erro ao enviar chamado')
+      const errorMessage = handleApiError(error)
+      showErrorToast(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (isSubmitting) {
+    return (
+      <div className="open-ticket">
+        <LoadingSpinner size="large" message="Criando chamado..." fullScreen={false} />
+      </div>
+    )
   }
 
   return (
@@ -264,18 +229,6 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
       <div className="section-header">
         <h1>Novo chamado</h1>
       </div>
-
-      {showSuccess && (
-        <div className="success-message">
-          ✅ Chamado enviado com sucesso! Redirecionando para "Meus Chamados"...
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="error-message">
-          ❌ {errorMessage}
-        </div>
-      )}
 
       <div className="ticket-form-container">
         <div className="form-section information-section">
@@ -391,57 +344,17 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
 
               <div className="form-group">
                 <label htmlFor="attachments">ANEXAR IMAGENS/ARQUIVOS</label>
-                <div 
-                  className={`file-upload-area ${dragActive ? 'drag-active' : ''}`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <div className="upload-content">
-                    <div className="upload-icon">📎</div>
-                    <div className="upload-text">
-                      <strong>Arraste e solte arquivos aqui</strong>
-                      <span>ou clique para selecionar</span>
-                    </div>
-                    <div className="upload-formats">
-                      Formatos aceitos: JPG, PNG, PDF, DOC, DOCX (máx. 10MB)
-                    </div>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    id="attachments"
-                    name="attachments"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx"
-                    onChange={handleFileChange}
-                    className="file-input"
-                  />
-                </div>
+                <FileUpload
+                  files={formData.attachments}
+                  onFilesChange={handleFilesChange}
+                  maxFiles={10}
+                  maxSizeMB={10}
+                  acceptedTypes={['image/*', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt']}
+                  multiple={true}
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
-
-            {formData.attachments.length > 0 && (
-              <div className="attachments-list">
-                <h4>Anexos ({formData.attachments.length})</h4>
-                {formData.attachments.map((file, index) => (
-                  <div key={index} className="attachment-item">
-                    <div className="attachment-info">
-                      <span className="attachment-name">{file.name}</span>
-                      <span className="attachment-size">{formatFileSize(file.size)}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="remove-attachment"
-                      onClick={() => removeAttachment(index)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div className="form-actions">
               <button 

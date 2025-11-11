@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { getPendingTechnicians, approveTechnician as approveTechnicianAPI, rejectTechnician as rejectTechnicianAPI } from '../../api/api'
 
 interface PendingTech {
   id: number
@@ -28,69 +29,53 @@ function TechApproval() {
   const [rejectionReason, setRejectionReason] = useState('')
 
   useEffect(() => {
-    fetchPendingTechnicians()
-  }, [])
+    if (token) {
+      fetchPendingTechnicians()
+    }
+  }, [token])
 
   const fetchPendingTechnicians = async () => {
     try {
       setLoading(true)
-      // Simulação de dados - substituir pela chamada real da API
-      const mockTechs: PendingTech[] = [
-        {
-          id: 1,
-          username: 'joao.tecnico',
-          email: 'joao.tecnico@empresa.com',
-          full_name: 'João Silva Santos',
-          employee_id: 'EMP001',
-          department: 'TI - Suporte',
-          specialty: ['Hardware', 'Software', 'Rede'],
-          phone: '(11) 99999-1111',
-          emergency_contact: '(11) 88888-1111',
-          certifications: 'CCNA, ITIL Foundation, AWS Cloud Practitioner',
-          experience_years: '5',
-          availability: 'full-time',
-          notes: 'Experiência em suporte técnico e infraestrutura de rede',
-          created_at: '2024-01-15T10:30:00Z',
-          status: 'pending'
-        },
-        {
-          id: 2,
-          username: 'maria.suporte',
-          email: 'maria.suporte@empresa.com',
-          full_name: 'Maria Oliveira Costa',
-          employee_id: 'EMP002',
-          department: 'TI - Infraestrutura',
-          specialty: ['Servidores', 'Backup', 'Virtualização'],
-          phone: '(11) 99999-2222',
-          emergency_contact: '(11) 88888-2222',
-          certifications: 'MCSA, VCP, CompTIA Server+',
-          experience_years: '8',
-          availability: 'full-time',
-          notes: 'Especialista em servidores Windows e VMware',
-          created_at: '2024-01-14T14:20:00Z',
-          status: 'pending'
-        },
-        {
-          id: 3,
-          username: 'pedro.rede',
-          email: 'pedro.rede@empresa.com',
-          full_name: 'Pedro Mendes Alves',
-          employee_id: 'EMP003',
-          department: 'TI - Redes',
-          specialty: ['Rede', 'Telefonia', 'Segurança'],
-          phone: '(11) 99999-3333',
-          emergency_contact: '(11) 88888-3333',
-          certifications: 'CCNP, CISM, CEH',
-          experience_years: '6',
-          availability: 'on-call',
-          notes: 'Especialista em redes e segurança',
-          created_at: '2024-01-13T09:15:00Z',
-          status: 'pending'
-        }
-      ]
-      setPendingTechs(mockTechs)
+      
+      if (!token) {
+        console.error('❌ Token não disponível')
+        return
+      }
+
+      console.log('👥 Buscando técnicos pendentes de aprovação da API...')
+      
+      try {
+        const response = await getPendingTechnicians(token)
+        const data = response.data || []
+
+        const pendingTechsData: PendingTech[] = data.map((tech: any) => ({
+          id: tech.id,
+          username: tech.username || '',
+          email: tech.email || '',
+          full_name: tech.full_name || tech.name || 'Técnico',
+          employee_id: tech.employee_id || tech.employeeId || `TEC${tech.id}`,
+          department: tech.department || 'TI',
+          specialty: Array.isArray(tech.specialty) ? tech.specialty : (tech.specialty ? [tech.specialty] : []),
+          phone: tech.phone || tech.phone_number || 'Não informado',
+          emergency_contact: tech.emergency_contact || tech.emergencyContact,
+          certifications: tech.certifications || tech.certification,
+          experience_years: tech.experience_years?.toString() || tech.experienceYears?.toString() || '0',
+          availability: tech.availability || 'full-time',
+          notes: tech.notes || tech.observations,
+          created_at: tech.created_at || tech.createdAt || new Date().toISOString(),
+          status: (tech.is_approved === true ? 'approved' : tech.is_approved === false ? 'rejected' : 'pending') as PendingTech['status']
+        }))
+
+        setPendingTechs(pendingTechsData)
+        console.log('✅ Técnicos pendentes carregados:', pendingTechsData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar técnicos pendentes:', error.response?.data || error.message)
+        setPendingTechs([])
+      }
     } catch (error) {
-      console.error('Erro ao buscar técnicos pendentes:', error)
+      console.error('❌ Erro geral ao buscar técnicos pendentes:', error)
+      setPendingTechs([])
     } finally {
       setLoading(false)
     }
@@ -98,48 +83,78 @@ function TechApproval() {
 
   const approveTechnician = async (techId: number) => {
     try {
+      if (!token) {
+        alert('Token não disponível')
+        return
+      }
+
       if (!approvalReason.trim()) {
         alert('Por favor, informe o motivo da aprovação')
         return
       }
 
-      // Simulação de aprovação - substituir pela chamada real da API
-      console.log('Aprovando técnico', techId, 'Motivo:', approvalReason)
+      console.log('✅ Aprovando técnico', techId, 'Motivo:', approvalReason)
 
-      const updatedTechs = pendingTechs.map(tech =>
-        tech.id === techId ? { ...tech, status: 'approved' as const } : tech
-      )
-      setPendingTechs(updatedTechs)
+      try {
+        await approveTechnicianAPI(token, techId, approvalReason)
 
-      setApprovalReason('')
-      setSelectedTech(null)
-      alert('Técnico aprovado com sucesso!')
+        // Atualizar lista local
+        const updatedTechs = pendingTechs.map(tech =>
+          tech.id === techId ? { ...tech, status: 'approved' as const } : tech
+        )
+        setPendingTechs(updatedTechs)
+
+        setApprovalReason('')
+        setSelectedTech(null)
+        alert('✅ Técnico aprovado com sucesso!')
+        
+        // Recarregar dados
+        fetchPendingTechnicians()
+      } catch (error: any) {
+        console.error('❌ Erro ao aprovar técnico:', error.response?.data || error.message)
+        alert(`Erro ao aprovar técnico: ${error.response?.data?.detail || error.message}`)
+      }
     } catch (error) {
-      console.error('Erro ao aprovar técnico:', error)
+      console.error('❌ Erro ao aprovar técnico:', error)
       alert('Erro ao aprovar técnico')
     }
   }
 
   const rejectTechnician = async (techId: number) => {
     try {
+      if (!token) {
+        alert('Token não disponível')
+        return
+      }
+
       if (!rejectionReason.trim()) {
         alert('Por favor, informe o motivo da rejeição')
         return
       }
 
-      // Simulação de rejeição - substituir pela chamada real da API
-      console.log('Rejeitando técnico', techId, 'Motivo:', rejectionReason)
+      console.log('❌ Rejeitando técnico', techId, 'Motivo:', rejectionReason)
 
-      const updatedTechs = pendingTechs.map(tech =>
-        tech.id === techId ? { ...tech, status: 'rejected' as const } : tech
-      )
-      setPendingTechs(updatedTechs)
+      try {
+        await rejectTechnicianAPI(token, techId, rejectionReason)
 
-      setRejectionReason('')
-      setSelectedTech(null)
-      alert('Técnico rejeitado.')
+        // Atualizar lista local
+        const updatedTechs = pendingTechs.map(tech =>
+          tech.id === techId ? { ...tech, status: 'rejected' as const } : tech
+        )
+        setPendingTechs(updatedTechs)
+
+        setRejectionReason('')
+        setSelectedTech(null)
+        alert('✅ Técnico rejeitado.')
+        
+        // Recarregar dados
+        fetchPendingTechnicians()
+      } catch (error: any) {
+        console.error('❌ Erro ao rejeitar técnico:', error.response?.data || error.message)
+        alert(`Erro ao rejeitar técnico: ${error.response?.data?.detail || error.message}`)
+      }
     } catch (error) {
-      console.error('Erro ao rejeitar técnico:', error)
+      console.error('❌ Erro ao rejeitar técnico:', error)
       alert('Erro ao rejeitar técnico')
     }
   }

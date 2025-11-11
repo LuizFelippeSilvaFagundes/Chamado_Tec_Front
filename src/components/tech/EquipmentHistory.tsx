@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { getEquipments, getEquipmentHistory as getEquipmentHistoryAPI, getEquipmentTickets } from '../../api/api'
 
 interface Equipment {
   id: string
@@ -51,66 +52,58 @@ function EquipmentHistory() {
   const [filterType, setFilterType] = useState<'all' | 'computer' | 'printer' | 'network'>('all')
 
   useEffect(() => {
-    fetchEquipments()
-  }, [])
+    if (token) {
+      fetchEquipments()
+    }
+  }, [token])
 
   useEffect(() => {
-    if (selectedEquipment) {
+    if (selectedEquipment && token) {
       fetchEquipmentHistory(selectedEquipment.id)
     }
-  }, [selectedEquipment])
+  }, [selectedEquipment, token])
 
   const fetchEquipments = async () => {
     try {
       setLoading(true)
-      // Simulação de dados - substituir pela chamada real da API
-      const mockEquipments: Equipment[] = [
-        {
-          id: 'PC-001',
-          name: 'Desktop Administração',
-          type: 'computer',
-          model: 'Dell OptiPlex 7090',
-          serial_number: 'DL709001234',
-          location: 'Sala 201 - Administração',
-          status: 'active',
-          purchase_date: '2023-03-15',
-          warranty_expiry: '2026-03-15',
-          assigned_user: 'João Silva',
-          department: 'Administração'
-        },
-        {
-          id: 'PC-002',
-          name: 'Desktop Financeiro',
-          type: 'computer',
-          model: 'HP EliteDesk 800',
-          serial_number: 'HP800567890',
-          location: 'Sala 105 - Financeiro',
-          status: 'maintenance',
-          purchase_date: '2022-08-20',
-          warranty_expiry: '2025-08-20',
-          assigned_user: 'Maria Santos',
-          department: 'Financeiro'
-        },
-        {
-          id: 'PRINT-001',
-          name: 'Impressora Multifuncional',
-          type: 'printer',
-          model: 'HP LaserJet Pro M404n',
-          serial_number: 'HP404987654',
-          location: 'Sala 201 - Administração',
-          status: 'active',
-          purchase_date: '2023-01-10',
-          warranty_expiry: '2025-01-10',
-          assigned_user: 'Departamento',
-          department: 'Administração'
+      
+      if (!token) {
+        console.error('❌ Token não disponível')
+        return
+      }
+
+      console.log('🖥️ Buscando equipamentos da API...')
+      
+      try {
+        const response = await getEquipments(token)
+        const data = response.data || []
+
+        const equipmentsData: Equipment[] = data.map((eq: any) => ({
+          id: eq.id || eq.equipment_id || `EQ${eq.id}`,
+          name: eq.name || eq.equipment_name || 'Equipamento',
+          type: eq.type || eq.equipment_type || 'computer',
+          model: eq.model || eq.model_name || 'N/A',
+          serial_number: eq.serial_number || eq.serial || 'N/A',
+          location: eq.location || eq.office_location || 'Não especificado',
+          status: (eq.status || 'active') as Equipment['status'],
+          purchase_date: eq.purchase_date || eq.purchased_at || new Date().toISOString().split('T')[0],
+          warranty_expiry: eq.warranty_expiry || eq.warranty_expires || eq.warranty_expiry_date || new Date().toISOString().split('T')[0],
+          assigned_user: eq.assigned_user?.full_name || eq.user_name || eq.assigned_user || 'Não atribuído',
+          department: eq.department || eq.department_name || 'N/A'
+        }))
+
+        setEquipments(equipmentsData)
+        if (equipmentsData.length > 0 && !selectedEquipment) {
+          setSelectedEquipment(equipmentsData[0])
         }
-      ]
-      setEquipments(mockEquipments)
-      if (mockEquipments.length > 0) {
-        setSelectedEquipment(mockEquipments[0])
+        console.log('✅ Equipamentos carregados:', equipmentsData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar equipamentos:', error.response?.data || error.message)
+        setEquipments([])
       }
     } catch (error) {
-      console.error('Erro ao buscar equipamentos:', error)
+      console.error('❌ Erro geral ao buscar equipamentos:', error)
+      setEquipments([])
     } finally {
       setLoading(false)
     }
@@ -118,63 +111,65 @@ function EquipmentHistory() {
 
   const fetchEquipmentHistory = async (equipmentId: string) => {
     try {
-      // Simulação de dados - substituir pela chamada real da API
-      const mockMaintenance: MaintenanceRecord[] = [
-        {
-          id: 1,
-          equipment_id: equipmentId,
-          type: 'preventive',
-          description: 'Limpeza geral e verificação de componentes',
-          technician: 'Técnico Silva',
-          date: '2024-01-10',
-          cost: 150.00,
-          parts_used: ['Ar comprimido', 'Pasta térmica'],
-          notes: 'Equipamento em bom estado, apenas limpeza preventiva realizada.'
-        },
-        {
-          id: 2,
-          equipment_id: equipmentId,
-          type: 'corrective',
-          description: 'Substituição de fonte de alimentação',
-          technician: 'Técnico Santos',
-          date: '2023-11-15',
-          cost: 280.00,
-          parts_used: ['Fonte 500W', 'Cabos de alimentação'],
-          notes: 'Fonte original apresentou falha, substituída por nova.'
-        }
-      ]
+      if (!token) {
+        console.error('❌ Token não disponível')
+        return
+      }
 
-      const mockTickets: TicketRecord[] = [
-        {
-          id: 15,
-          equipment_id: equipmentId,
-          title: 'Computador não liga',
-          description: 'Usuário relata que o computador não está ligando',
-          priority: 'high',
-          status: 'resolved',
-          user_name: 'João Silva',
-          created_at: '2024-01-15T10:30:00Z',
-          resolved_at: '2024-01-15T14:30:00Z',
-          technician: 'Técnico Atual'
-        },
-        {
-          id: 8,
-          equipment_id: equipmentId,
-          title: 'Sistema lento',
-          description: 'Computador muito lento para trabalhar',
-          priority: 'medium',
-          status: 'resolved',
-          user_name: 'João Silva',
-          created_at: '2023-12-20T09:15:00Z',
-          resolved_at: '2023-12-20T11:30:00Z',
-          technician: 'Técnico Silva'
-        }
-      ]
+      console.log('📋 Buscando histórico do equipamento', equipmentId, 'da API...')
+      
+      // Buscar histórico de manutenção
+      try {
+        const historyResponse = await getEquipmentHistoryAPI(token, equipmentId)
+        const historyData = historyResponse.data || []
 
-      setMaintenanceHistory(mockMaintenance)
-      setTicketHistory(mockTickets)
+        const maintenanceData: MaintenanceRecord[] = historyData.map((record: any) => ({
+          id: record.id,
+          equipment_id: equipmentId,
+          type: (record.type || record.maintenance_type || 'preventive') as MaintenanceRecord['type'],
+          description: record.description || record.notes || '',
+          technician: record.technician?.full_name || record.technician_name || 'Técnico',
+          date: record.date || record.maintenance_date || record.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          cost: record.cost || record.maintenance_cost || 0,
+          parts_used: Array.isArray(record.parts_used) ? record.parts_used : (record.parts_used ? [record.parts_used] : []),
+          notes: record.notes || record.observations || ''
+        }))
+
+        setMaintenanceHistory(maintenanceData)
+        console.log('✅ Histórico de manutenção carregado:', maintenanceData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar histórico de manutenção:', error.response?.data || error.message)
+        setMaintenanceHistory([])
+      }
+
+      // Buscar tickets relacionados
+      try {
+        const ticketsResponse = await getEquipmentTickets(token, equipmentId)
+        const ticketsData = ticketsResponse.data || []
+
+        const ticketData: TicketRecord[] = ticketsData.map((ticket: any) => ({
+          id: ticket.id,
+          equipment_id: equipmentId,
+          title: ticket.title || 'Sem título',
+          description: ticket.description || '',
+          priority: ticket.priority || 'medium',
+          status: ticket.status || 'open',
+          user_name: ticket.user?.full_name || ticket.user_name || 'Usuário',
+          created_at: ticket.created_at || new Date().toISOString(),
+          resolved_at: ticket.resolved_at || ticket.closed_at,
+          technician: ticket.assigned_technician?.full_name || ticket.technician_name || 'Não atribuído'
+        }))
+
+        setTicketHistory(ticketData)
+        console.log('✅ Tickets do equipamento carregados:', ticketData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar tickets do equipamento:', error.response?.data || error.message)
+        setTicketHistory([])
+      }
     } catch (error) {
-      console.error('Erro ao buscar histórico:', error)
+      console.error('❌ Erro geral ao buscar histórico do equipamento:', error)
+      setMaintenanceHistory([])
+      setTicketHistory([])
     }
   }
 

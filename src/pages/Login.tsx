@@ -1,26 +1,31 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
 import '../components/Login.css'
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const { login } = useAuth()
+  const { showError: showErrorToast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!username.trim()) {
-      setErrorMessage('Informe seu usuário.')
+      showErrorToast('Informe seu usuário.')
       return
     }
     if (!password.trim()) {
-      setErrorMessage('Informe sua senha.')
+      showErrorToast('Informe sua senha.')
       return
     }
+
+    setIsLoading(true)
 
     try {
       console.log('🔐 Tentativa de login:', { username, password })
@@ -34,14 +39,9 @@ export default function Login() {
       })
 
       if (!res.ok) {
-        let msg = 'Erro ao fazer login'
-        try {
-          const data = await res.json()
-          if (typeof data?.detail === 'string') msg = data.detail
-          else if (Array.isArray(data?.detail)) msg = data.detail.map((d: any) => d?.msg || d?.detail || JSON.stringify(d)).join(' | ')
-          else if (data) msg = JSON.stringify(data)
-        } catch {}
-        throw new Error(msg)
+        const data = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...data, status: res.status })
+        throw new Error(errorMessage)
       }
 
       const data = await res.json()
@@ -63,7 +63,9 @@ export default function Login() {
         })
 
         if (!userRes.ok) {
-          throw new Error('Erro ao buscar informações do usuário')
+          const errorData = await userRes.json().catch(() => ({}))
+          const errorMessage = handleApiError(errorData)
+          throw new Error(errorMessage)
         }
 
         userData = await userRes.json()
@@ -88,7 +90,10 @@ export default function Login() {
       }, 100)
     } catch (error) {
       console.error('Erro no login:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Erro ao fazer login')
+      const errorMessage = handleApiError(error)
+      showErrorToast(errorMessage)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -117,12 +122,9 @@ export default function Login() {
               required
             />
           </label>
-          {errorMessage && (
-            <div className="error-message">
-              ❌ {errorMessage}
-            </div>
-          )}
-          <button type="submit">Entrar</button>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Entrando...' : 'Entrar'}
+          </button>
         </form>
         <div className="login-links">
           <p>

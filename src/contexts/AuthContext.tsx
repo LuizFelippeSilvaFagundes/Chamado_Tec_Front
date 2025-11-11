@@ -15,6 +15,7 @@ interface AuthContextType {
   token: string | null
   login: (token: string, user: User) => void
   logout: () => void
+  updateUser: (userData: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -51,6 +52,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('user')
   }
 
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData }
+      setUser(updatedUser)
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      console.log('✅ AuthContext: Usuário atualizado:', updatedUser)
+    }
+  }
+
   useEffect(() => {
     // Tenta recuperar dados do localStorage primeiro
     const savedUser = localStorage.getItem('user')
@@ -70,7 +80,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     token,
     login,
-    logout
+    logout,
+    updateUser
   }
 
   console.log('🔍 AuthContext estado:', { user, token })

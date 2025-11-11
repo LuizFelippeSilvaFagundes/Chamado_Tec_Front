@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { formatDateTime, formatDateOnly } from '../utils/dateUtils'
 import DateTestModal from './DateTestModal'
+import AttachmentViewer from './AttachmentViewer'
+import LoadingSpinner from './LoadingSpinner'
+import SkeletonLoader from './SkeletonLoader'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
 import './MyTickets.css'
 
 interface Attachment {
@@ -59,9 +64,9 @@ const getInitials = (name: string) => {
 }
 
 function MyTickets() {
+  const { showError: showErrorToast } = useToast()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -80,7 +85,8 @@ function MyTickets() {
         
         if (!userData.username) {
           console.error('❌ Username não encontrado no localStorage')
-          setError('Usuário não encontrado. Faça login novamente.')
+          showErrorToast('Usuário não encontrado. Faça login novamente.')
+          setLoading(false)
           return
         }
 
@@ -93,9 +99,9 @@ function MyTickets() {
 
         console.log('🔍 Resposta da API:', res.status)
         if (!res.ok) {
-          const errorText = await res.text()
-          console.error('❌ Erro da API:', errorText)
-          throw new Error(`Erro ao buscar tickets: ${res.status}`)
+          const errorData = await res.json().catch(() => ({}))
+          const errorMessage = handleApiError({ ...errorData, status: res.status })
+          throw new Error(errorMessage)
         }
 
         const data = await res.json()
@@ -104,7 +110,10 @@ function MyTickets() {
         setFilteredTickets(data)
       } catch (err) {
         console.error('❌ Erro completo:', err)
-        setError(err instanceof Error ? err.message : 'Erro ao carregar tickets')
+        const errorMessage = handleApiError(err)
+        showErrorToast(errorMessage)
+        setTickets([])
+        setFilteredTickets([])
       } finally {
         setLoading(false)
       }
@@ -161,26 +170,19 @@ function MyTickets() {
         <h1>📋 Meus Chamados</h1>
       </div>
 
-      {loading && (
-        <div className="loading-message">
-          🔄 Carregando seus tickets...
+      {loading ? (
+        <div style={{ padding: '2rem' }}>
+          <LoadingSpinner size="large" message="Carregando seus chamados..." />
+          <div style={{ marginTop: '2rem' }}>
+            <SkeletonLoader type="card" count={3} />
+          </div>
         </div>
-      )}
-
-      {error && (
-        <div className="error-message">
-          ❌ {error}
-        </div>
-      )}
-
-      {!loading && !error && tickets.length === 0 && (
+      ) : tickets.length === 0 ? (
         <div className="empty-state">
           📭 Você ainda não tem tickets. <br />
           Clique em "Abrir Novo Chamado" para criar seu primeiro ticket!
         </div>
-      )}
-
-      {!loading && !error && tickets.length > 0 && (
+      ) : (
         <>
           {/* Filtros */}
           <div className="filters-section">
@@ -436,55 +438,18 @@ function MyTickets() {
 
               {/* Anexos */}
               {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
-                <div className="ticket-attachments">
-                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
-                  <div className="attachments-list">
-                    {selectedTicket.attachments.map((attachment, index) => {
-                      const isImage = attachment.type.startsWith('image/');
-                      const fileSize = (attachment.size / 1024).toFixed(1); // KB
-                      
-                      return (
-                        <div key={index} className="attachment-item">
-                          {isImage ? (
-                            <div className="attachment-preview">
-                              <img 
-                                src={`http://127.0.0.1:8000${attachment.url}`}
-                                alt={attachment.filename}
-                                className="attachment-thumbnail"
-                                onClick={() => window.open(`http://127.0.0.1:8000${attachment.url}`, '_blank')}
-                                style={{ cursor: 'pointer' }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="attachment-icon">
-                              📄
-                            </div>
-                          )}
-                          <div className="attachment-info">
-                            <span className="attachment-name" title={attachment.filename}>
-                              {attachment.filename}
-                            </span>
-                            <span className="attachment-size">
-                              {fileSize} KB
-                            </span>
-                          </div>
-                          <button
-                            className="download-btn"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = `http://127.0.0.1:8000/tickets/${selectedTicket.id}/attachments/download/${attachment.stored_filename}`;
-                              link.download = attachment.filename;
-                              link.click();
-                            }}
-                            title="Baixar arquivo"
-                          >
-                            ⬇️
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <AttachmentViewer
+                  attachments={selectedTicket.attachments.map((att: any) => ({
+                    id: att.id,
+                    filename: att.filename || att.name || 'Arquivo',
+                    url: att.url || att.path,
+                    size: att.size,
+                    type: att.type || att.mime_type,
+                    created_at: att.created_at
+                  }))}
+                  ticketId={selectedTicket.id}
+                  canDelete={false}
+                />
               )}
 
               {selectedTicket.comments.length > 0 && (

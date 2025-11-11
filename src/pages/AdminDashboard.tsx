@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import AvatarUpload from '../components/AvatarUpload'
+import AdminSLAMonitoring from '../components/admin/AdminSLAMonitoring'
 import './AdminDashboard.css'
+import { getTicketHistory, getTicketComments, updateTicket } from '../api/api'
+import EditTicketModal from '../components/admin/EditTicketModal'
+import NotificationCenter from '../components/NotificationCenter'
+import KnowledgeBase from '../components/KnowledgeBase'
+import { createLocalNotification } from '../contexts/NotificationContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('chamados-abertos')
@@ -10,15 +19,10 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const [showAccountModal, setShowAccountModal] = useState(false)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // Sincronizar avatar com o contexto
-  useEffect(() => {
-    if (user?.avatar_url) {
-      setUserAvatarUrl(user.avatar_url)
-    }
-  }, [user?.avatar_url])
+  // Usar avatar diretamente do contexto (atualiza automaticamente)
+  const userAvatarUrl = user?.avatar_url
 
   // Fechar modal ao clicar fora
   useEffect(() => {
@@ -46,8 +50,8 @@ export default function AdminDashboard() {
       .join('')
   }
 
-  const handleAvatarUpdate = (newAvatarUrl: string | null) => {
-    setUserAvatarUrl(newAvatarUrl)
+  const handleAvatarUpdate = () => {
+    // O contexto já foi atualizado pelo AvatarUpload
     setShowAvatarModal(false)
   }
 
@@ -68,6 +72,10 @@ export default function AdminDashboard() {
         return <ClientesList />
       case 'servicos':
         return <ServicosList />
+      case 'sla-produtividade':
+        return <AdminSLAMonitoring />
+      case 'base-conhecimento':
+        return <KnowledgeBase canEdit={true} />
       default:
         return <ChamadosAbertosList />
     }
@@ -132,11 +140,28 @@ export default function AdminDashboard() {
             <span className="nav-icon">🔧</span>
             <span className="nav-text">Serviços</span>
           </button>
+          
+          <button 
+            className={`nav-item ${activeTab === 'sla-produtividade' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sla-produtividade')}
+          >
+            <span className="nav-icon">⏱️</span>
+            <span className="nav-text">SLA & Produtividade</span>
+          </button>
+          
+          <button 
+            className={`nav-item ${activeTab === 'base-conhecimento' ? 'active' : ''}`}
+            onClick={() => setActiveTab('base-conhecimento')}
+          >
+            <span className="nav-icon">📚</span>
+            <span className="nav-text">Base de Conhecimento</span>
+          </button>
         </nav>
 
         {/* User Profile */}
         <div className="sidebar-user">
-          <div className="user-profile">
+          <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0 1rem' }}>
+            <NotificationCenter />
             <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
               {userAvatarUrl ? (
                 <img 
@@ -494,6 +519,7 @@ function ChamadosList() {
 // Componente de Lista de Técnicos
 function TecnicosList() {
   const { token } = useAuth()
+  const { showSuccess: showSuccessToast, showError: showErrorToast } = useToast()
   const navigate = useNavigate()
   const [tecnicos, setTecnicos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -510,7 +536,7 @@ function TecnicosList() {
         throw new Error('Token não encontrado')
       }
 
-      const res = await fetch('http://127.0.0.1:8000/admin/tecnicos', {
+      const res = await fetch('http://127.0.0.1:8000/tech/todos', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -565,14 +591,15 @@ function TecnicosList() {
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao aprovar técnico')
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(handleApiError({ ...errorData, status: res.status }))
       }
 
-      alert('✅ Técnico aprovado com sucesso!')
+      showSuccessToast('Técnico aprovado com sucesso!')
       fetchTecnicos() // Recarregar lista
     } catch (error) {
       console.error('Erro ao aprovar técnico:', error)
-      alert('❌ Erro ao aprovar técnico')
+      showErrorToast(handleApiError(error))
     }
   }
 
@@ -653,6 +680,9 @@ interface Ticket {
   title: string
   description: string
   created_at: string
+  priority?: 'low' | 'medium' | 'high' | 'critical'
+  problem_type?: string
+  status?: string
   assigned_technician?: {
     id: number
     full_name: string
@@ -668,6 +698,7 @@ interface Technician {
 // Componente para Chamados Abertos
 function ChamadosAbertosList() {
   const { token } = useAuth()
+  const { showSuccess: showSuccessToast, showError: showErrorToast } = useToast()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
@@ -680,6 +711,12 @@ function ChamadosAbertosList() {
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [selectedTicketForProgress, setSelectedTicketForProgress] = useState<Ticket | null>(null)
+  const [ticketHistory, setTicketHistory] = useState<any[]>([])
+  const [ticketComments, setTicketComments] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedTicketForEdit, setSelectedTicketForEdit] = useState<Ticket | null>(null)
+  const [editingTicket, setEditingTicket] = useState(false)
 
   useEffect(() => {
     fetchOpenTickets()
@@ -729,16 +766,50 @@ function ChamadosAbertosList() {
     setShowTicketModal(false)
   }
 
-  const openProgressModal = (ticket: Ticket) => {
+  const openProgressModal = async (ticket: Ticket) => {
     console.log('🔍 Abrindo modal de progresso para ticket:', ticket)
     setSelectedTicketForProgress(ticket)
     setShowProgressModal(true)
-    console.log('✅ Modal de progresso deve estar visível agora')
+    setLoadingHistory(true)
+    
+    try {
+      // Buscar histórico e comentários do ticket
+      if (token) {
+        try {
+          const historyResponse = await getTicketHistory(token, ticket.id)
+          setTicketHistory(historyResponse.data || [])
+        } catch (error) {
+          console.log('⚠️ Erro ao buscar histórico, usando dados padrão:', error)
+          // Se não houver histórico na API, criar histórico básico
+          setTicketHistory([{
+            id: 1,
+            action: 'created',
+            description: `Chamado criado: ${ticket.description}`,
+            timestamp: ticket.created_at,
+            user_name: 'Usuário'
+          }])
+        }
+        
+        try {
+          const commentsResponse = await getTicketComments(token, ticket.id)
+          setTicketComments(commentsResponse.data || [])
+        } catch (error) {
+          console.log('⚠️ Erro ao buscar comentários:', error)
+          setTicketComments([])
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados do ticket:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
   }
 
   const closeProgressModal = () => {
     setSelectedTicketForProgress(null)
     setShowProgressModal(false)
+    setTicketHistory([])
+    setTicketComments([])
   }
 
   const fetchOpenTickets = async () => {
@@ -758,12 +829,57 @@ function ChamadosAbertosList() {
       if (response.ok) {
         const data = await response.json()
         console.log('📋 Chamados abertos recebidos:', data)
-        setTickets(data)
+        
+        // Garantir que os tickets tenham a estrutura correta
+        const formattedTickets: Ticket[] = data.map((ticket: any) => {
+          // Verificar se tem técnico atribuído - considerar tanto assigned_technician_id quanto assigned_technician
+          const hasTechnicianId = ticket.assigned_technician_id !== null && 
+                                  ticket.assigned_technician_id !== undefined;
+          const hasTechnicianObject = ticket.assigned_technician && 
+                                      (ticket.assigned_technician.id || ticket.assigned_technician.full_name);
+          
+          return {
+            id: ticket.id,
+            title: ticket.title,
+            description: ticket.description,
+            created_at: ticket.created_at,
+            priority: ticket.priority || 'medium',
+            problem_type: ticket.problem_type || ticket.category || '',
+            status: ticket.status || 'open',
+            // Se assigned_technician existe e tem dados válidos, usar ele
+            // Se não, mas assigned_technician_id existe, considerar como atribuído (mas sem detalhes)
+            // Caso contrário, undefined (não atribuído - pode atribuir)
+            assigned_technician: hasTechnicianObject
+              ? {
+                  id: ticket.assigned_technician.id || ticket.assigned_technician_id,
+                  full_name: ticket.assigned_technician.full_name || ticket.assigned_technician.name || 'Técnico'
+                }
+              : (hasTechnicianId
+                ? { 
+                    id: ticket.assigned_technician_id, 
+                    full_name: 'Técnico atribuído' 
+                  }
+                : undefined)
+          };
+        })
+        
+        console.log('📋 Tickets formatados - Quantidade:', formattedTickets.length)
+        formattedTickets.forEach((ticket, index) => {
+          console.log(`  Ticket ${index + 1} (ID: ${ticket.id}):`, {
+            title: ticket.title,
+            hasTechnician: !!ticket.assigned_technician,
+            technician: ticket.assigned_technician
+          })
+        })
+        setTickets(formattedTickets)
       } else {
+        const errorData = await response.json().catch(() => ({}))
         console.error('Erro ao buscar chamados abertos:', response.status)
+        showErrorToast(handleApiError({ ...errorData, status: response.status }))
       }
     } catch (error) {
       console.error('Erro ao buscar chamados abertos:', error)
+      showErrorToast(handleApiError(error))
     } finally {
       setLoading(false)
     }
@@ -777,7 +893,7 @@ function ChamadosAbertosList() {
         throw new Error('Token não encontrado')
       }
 
-      const response = await fetch('http://127.0.0.1:8000/admin/tecnicos', {
+      const response = await fetch('http://127.0.0.1:8000/tech/todos', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -822,7 +938,10 @@ function ChamadosAbertosList() {
       return
     }
     
-    console.log('🔄 Atribuindo chamado:', selectedTicket.id, 'para técnico:', technicianId)
+    const isReassigning = !!selectedTicket.assigned_technician
+    const actionText = isReassigning ? 'Reatribuindo' : 'Atribuindo'
+    
+    console.log(`🔄 ${actionText} chamado:`, selectedTicket.id, 'para técnico:', technicianId)
     
     try {
       const response = await fetch(`http://127.0.0.1:8000/admin/tickets/${selectedTicket.id}/assign`, {
@@ -838,20 +957,33 @@ function ChamadosAbertosList() {
       
       if (response.ok) {
         const result = await response.json()
-        console.log('✅ Chamado atribuído com sucesso:', result)
+        console.log(`✅ Chamado ${isReassigning ? 'reatribuído' : 'atribuído'} com sucesso:`, result)
         
         setShowAssignModal(false)
         setSelectedTicket(null)
         fetchOpenTickets() // Recarregar a lista
-        alert('✅ Chamado atribuído com sucesso! O técnico receberá uma notificação.')
+        
+        // Criar notificação para o técnico (localmente se a API não existir)
+        const technician = technicians.find(t => t.id === technicianId)
+        if (technician) {
+          createLocalNotification({
+            title: isReassigning ? 'Chamado Reatribuído' : 'Novo Chamado Atribuído',
+            message: `O chamado "${selectedTicket.title}" foi ${isReassigning ? 'reatribuído' : 'atribuído'} a você.`,
+            type: 'ticket_assigned',
+            ticket_id: selectedTicket.id,
+            link: `/tech-dashboard?ticket=${selectedTicket.id}`
+          })
+        }
+        
+        showSuccessToast(`Chamado ${isReassigning ? 'reatribuído' : 'atribuído'} com sucesso! O técnico receberá uma notificação.`)
       } else {
         const errorData = await response.text()
         console.error('❌ Erro na resposta:', response.status, errorData)
-        alert(`Erro ao atribuir chamado: ${response.status} - ${errorData}`)
+        showErrorToast(handleApiError({ detail: errorData, status: response.status }))
       }
     } catch (error) {
-      console.error('❌ Erro ao atribuir chamado:', error)
-      alert(`Erro de conexão: ${error}`)
+      console.error(`❌ Erro ao ${isReassigning ? 'reatribuir' : 'atribuir'} chamado:`, error)
+      showErrorToast(handleApiError(error))
     }
   }
 
@@ -877,7 +1009,7 @@ function ChamadosAbertosList() {
   if (loading) {
     return (
       <div className="chamados-abertos-container">
-        <div className="loading">Carregando chamados abertos...</div>
+        <LoadingSpinner size="large" message="Carregando chamados abertos..." fullScreen={false} />
       </div>
     )
   }
@@ -957,18 +1089,30 @@ function ChamadosAbertosList() {
                         e.stopPropagation()
                         openTicketModal(ticket)
                       }}
+                      title="Ver detalhes"
                     >
                       ✏️
                     </button>
-                    {!ticket.assigned_technician && (
+                    {(!ticket.assigned_technician || !ticket.assigned_technician.id) && (
                       <button 
                         className="start-btn"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleAssignTicket(ticket)
                         }}
+                        title="Atribuir técnico a este chamado"
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '0.875rem'
+                        }}
                       >
-                        🕒 Iniciar
+                        👤 Atribuir
                       </button>
                     )}
                   </div>
@@ -992,12 +1136,36 @@ function ChamadosAbertosList() {
                         <span className="tech-name">{ticket.assigned_technician.full_name}</span>
                       </div>
                     ) : (
-                      <span className="no-assignee">Não atribuído</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                        <span className="no-assignee" style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠️ Não atribuído</span>
+                        <button 
+                          className="start-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAssignTicket(ticket)
+                          }}
+                          style={{ 
+                            width: '100%', 
+                            padding: '8px', 
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                          title="Atribuir técnico a este chamado"
+                        >
+                          👤 Atribuir Técnico
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <div className="status-indicator aberto">
-                    <span className="status-icon">❓</span>
-                  </div>
+                  {ticket.assigned_technician && (
+                    <div className="status-indicator aberto">
+                      <span className="status-icon">❓</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
@@ -1059,34 +1227,40 @@ function ChamadosAbertosList() {
                 <div className="ticket-actions-section">
                   <h3>Ações</h3>
                   <div className="action-buttons">
-                    {!selectedTicketForModal.assigned_technician ? (
-                      <button 
-                        className="action-btn primary"
-                        onClick={() => {
-                          closeTicketModal()
-                          handleAssignTicket(selectedTicketForModal)
-                        }}
-                      >
-                        🕒 Atribuir Técnico
-                      </button>
-                    ) : (
-                      <button 
-                        className="action-btn info"
-                        onClick={() => {
-                          console.log('🖱️ Botão Acompanhar Progresso clicado!')
-                          console.log('📋 Ticket selecionado:', selectedTicketForModal)
-                          closeTicketModal()
-                          openProgressModal(selectedTicketForModal)
-                        }}
-                      >
-                        📊 Acompanhar Progresso
-                      </button>
-                    )}
+                    {/* Botão de Atribuir Técnico - sempre visível */}
+                    <button 
+                      className="action-btn primary"
+                      onClick={() => {
+                        closeTicketModal()
+                        handleAssignTicket(selectedTicketForModal)
+                      }}
+                      title={selectedTicketForModal.assigned_technician 
+                        ? "Alterar técnico atribuído" 
+                        : "Atribuir técnico a este chamado"}
+                    >
+                      {selectedTicketForModal.assigned_technician 
+                        ? "👤 Alterar Técnico" 
+                        : "👤 Atribuir Técnico"}
+                    </button>
+                    
+                    {/* Botão de Acompanhar Progresso - sempre visível */}
+                    <button 
+                      className="action-btn info"
+                      onClick={() => {
+                        console.log('🖱️ Botão Acompanhar Progresso clicado!')
+                        console.log('📋 Ticket selecionado:', selectedTicketForModal)
+                        closeTicketModal()
+                        openProgressModal(selectedTicketForModal)
+                      }}
+                    >
+                      📊 Acompanhar Progresso
+                    </button>
+                    
                     <button 
                       className="action-btn secondary"
                       onClick={() => {
-                        closeTicketModal()
-                        // Aqui você pode adicionar lógica para editar o ticket
+                        setSelectedTicketForEdit(selectedTicketForModal)
+                        setShowEditModal(true)
                       }}
                     >
                       ✏️ Editar Chamado
@@ -1113,7 +1287,7 @@ function ChamadosAbertosList() {
         <div className="assign-modal-overlay">
           <div className="assign-modal">
             <div className="modal-header">
-              <h3>👑 Atribuir Chamado</h3>
+              <h3>{selectedTicket?.assigned_technician ? '👑 Reatribuir Chamado' : '👑 Atribuir Chamado'}</h3>
               <button 
                 className="close-btn"
                 onClick={() => setShowAssignModal(false)}
@@ -1125,9 +1299,14 @@ function ChamadosAbertosList() {
             <div className="modal-content">
               <p><strong>Chamado:</strong> {selectedTicket?.title}</p>
               <p><strong>Descrição:</strong> {selectedTicket?.description}</p>
+              {selectedTicket?.assigned_technician && (
+                <p style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                  ⚠️ Técnico atual: {selectedTicket.assigned_technician.full_name}
+                </p>
+              )}
               
               <div className="technicians-list">
-                <h4>👥 Selecione um técnico:</h4>
+                <h4>👥 {selectedTicket?.assigned_technician ? 'Selecione um novo técnico:' : 'Selecione um técnico:'}</h4>
                 
                 {/* Debug info */}
                 <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#f0f0f0', borderRadius: '4px', fontSize: '0.8rem' }}>
@@ -1149,24 +1328,39 @@ function ChamadosAbertosList() {
                     </button>
                   </div>
                 ) : (
-                  technicians.map(tech => (
-                    <div 
-                      key={tech.id} 
-                      className="technician-option"
-                      onClick={() => {
-                        console.log('🖱️ Clicou no técnico:', tech)
-                        assignToTechnician(tech.id)
-                      }}
-                    >
-                      <div className="tech-avatar">
-                        {getInitials(tech.full_name)}
+                  technicians.map(tech => {
+                    const isCurrentTechnician = selectedTicket?.assigned_technician?.id === tech.id
+                    return (
+                      <div 
+                        key={tech.id} 
+                        className="technician-option"
+                        onClick={() => {
+                          if (!isCurrentTechnician) {
+                            console.log('🖱️ Clicou no técnico:', tech)
+                            assignToTechnician(tech.id)
+                          }
+                        }}
+                        style={{
+                          opacity: isCurrentTechnician ? 0.6 : 1,
+                          cursor: isCurrentTechnician ? 'not-allowed' : 'pointer',
+                          border: isCurrentTechnician ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                          backgroundColor: isCurrentTechnician ? '#fef3c7' : 'transparent'
+                        }}
+                        title={isCurrentTechnician ? 'Técnico atualmente atribuído' : 'Clique para atribuir este técnico'}
+                      >
+                        <div className="tech-avatar">
+                          {getInitials(tech.full_name)}
+                        </div>
+                        <div className="tech-info">
+                          <span className="tech-name">
+                            {tech.full_name}
+                            {isCurrentTechnician && <span style={{ color: '#f59e0b', marginLeft: '8px' }}>✓ Atual</span>}
+                          </span>
+                          <span className="tech-specialty">{tech.specialty?.join(', ')}</span>
+                        </div>
                       </div>
-                      <div className="tech-info">
-                        <span className="tech-name">{tech.full_name}</span>
-                        <span className="tech-specialty">{tech.specialty?.join(', ')}</span>
-                      </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -1197,57 +1391,134 @@ function ChamadosAbertosList() {
               <div className="progress-timeline">
                 <h4>📋 Histórico do Chamado</h4>
                 
-                <div className="timeline-item">
-                  <div className="timeline-marker created"></div>
-                  <div className="timeline-content">
-                    <div className="timeline-header">
-                      <span className="timeline-title">Chamado Criado</span>
-                      <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
-                    </div>
-                    <div className="timeline-description">
-                      <p><strong>Descrição:</strong> {selectedTicketForProgress.description}</p>
-                      <p><strong>Solicitado por:</strong> Usuário do sistema</p>
-                    </div>
+                {loadingHistory ? (
+                  <div className="loading-state" style={{ padding: '2rem', textAlign: 'center' }}>
+                    <LoadingSpinner size="medium" message="Carregando histórico..." fullScreen={false} />
                   </div>
-                </div>
-
-                {selectedTicketForProgress.assigned_technician && (
-                  <div className="timeline-item">
-                    <div className="timeline-marker assigned"></div>
-                    <div className="timeline-content">
-                      <div className="timeline-header">
-                        <span className="timeline-title">Chamado Atribuído</span>
-                        <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
-                      </div>
-                      <div className="timeline-description">
-                        <p><strong>Atribuído para:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
-                        <p><strong>Atribuído por:</strong> Administrador</p>
-                        <div className="technician-info">
-                          <div className="tech-avatar-small">
-                            {getInitials(selectedTicketForProgress.assigned_technician.full_name)}
+                ) : (
+                  <>
+                    {/* Se não está atribuído, mostrar apenas histórico do usuário */}
+                    {!selectedTicketForProgress.assigned_technician ? (
+                      <>
+                        <div className="timeline-item">
+                          <div className="timeline-marker created"></div>
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-title">Chamado Criado</span>
+                              <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
+                            </div>
+                            <div className="timeline-description">
+                              <p><strong>Descrição:</strong> {selectedTicketForProgress.description}</p>
+                              <p><strong>Solicitado por:</strong> Usuário</p>
+                            </div>
                           </div>
-                          <span>{selectedTicketForProgress.assigned_technician.full_name}</span>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                        <div className="timeline-item current">
+                          <div className="timeline-marker current"></div>
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-title">Status Atual</span>
+                              <span className="timeline-date">Agora</span>
+                            </div>
+                            <div className="timeline-description">
+                              <p><strong>Status:</strong> Aguardando Atribuição</p>
+                              <p><strong>Atribuição:</strong> Não atribuído</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Histórico completo quando atribuído */}
+                        <div className="timeline-item">
+                          <div className="timeline-marker created"></div>
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-title">Chamado Criado</span>
+                              <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
+                            </div>
+                            <div className="timeline-description">
+                              <p><strong>Descrição:</strong> {selectedTicketForProgress.description}</p>
+                              <p><strong>Solicitado por:</strong> Usuário</p>
+                            </div>
+                          </div>
+                        </div>
 
-                <div className="timeline-item current">
-                  <div className="timeline-marker current"></div>
-                  <div className="timeline-content">
-                    <div className="timeline-header">
-                      <span className="timeline-title">Status Atual</span>
-                      <span className="timeline-date">Agora</span>
-                    </div>
-                    <div className="timeline-description">
-                      <p><strong>Status:</strong> {selectedTicketForProgress.assigned_technician ? 'Em Andamento' : 'Aguardando Atribuição'}</p>
-                      {selectedTicketForProgress.assigned_technician && (
-                        <p><strong>Técnico Responsável:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                        <div className="timeline-item">
+                          <div className="timeline-marker assigned"></div>
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-title">Chamado Atribuído</span>
+                              <span className="timeline-date">{formatDate(selectedTicketForProgress.created_at)}</span>
+                            </div>
+                            <div className="timeline-description">
+                              <p><strong>Atribuído para:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
+                              <p><strong>Atribuído por:</strong> Administrador</p>
+                              <div className="technician-info">
+                                <div className="tech-avatar-small">
+                                  {getInitials(selectedTicketForProgress.assigned_technician.full_name)}
+                                </div>
+                                <span>{selectedTicketForProgress.assigned_technician.full_name}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mostrar histórico da API se disponível */}
+                        {ticketHistory.length > 0 && ticketHistory.map((item: any, index: number) => (
+                          <div key={item.id || index} className="timeline-item">
+                            <div className="timeline-marker"></div>
+                            <div className="timeline-content">
+                              <div className="timeline-header">
+                                <span className="timeline-title">{item.action || 'Atualização'}</span>
+                                <span className="timeline-date">{formatDate(item.timestamp || item.created_at)}</span>
+                              </div>
+                              <div className="timeline-description">
+                                <p>{item.description || item.comment}</p>
+                                {item.user_name && <p><strong>Por:</strong> {item.user_name}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Mostrar comentários se disponíveis */}
+                        {ticketComments.length > 0 && (
+                          <>
+                            <h5 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>💬 Comentários</h5>
+                            {ticketComments.map((comment: any, index: number) => (
+                              <div key={comment.id || index} className="timeline-item">
+                                <div className="timeline-marker"></div>
+                                <div className="timeline-content">
+                                  <div className="timeline-header">
+                                    <span className="timeline-title">{comment.author || 'Usuário'}</span>
+                                    <span className="timeline-date">{formatDate(comment.created_at || comment.timestamp)}</span>
+                                  </div>
+                                  <div className="timeline-description">
+                                    <p>{comment.text || comment.comment}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
+
+                        <div className="timeline-item current">
+                          <div className="timeline-marker current"></div>
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-title">Status Atual</span>
+                              <span className="timeline-date">Agora</span>
+                            </div>
+                            <div className="timeline-description">
+                              <p><strong>Status:</strong> Em Andamento</p>
+                              <p><strong>Técnico Responsável:</strong> {selectedTicketForProgress.assigned_technician.full_name}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="progress-summary">
@@ -1271,16 +1542,139 @@ function ChamadosAbertosList() {
           </div>
         </div>
       )}
+
+      {/* Modal de Edição de Chamado */}
+      {showEditModal && selectedTicketForEdit && (
+        <EditTicketModal
+          ticket={selectedTicketForEdit}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedTicketForEdit(null)
+          }}
+          onSave={async (updatedData) => {
+            try {
+              setEditingTicket(true)
+              if (!token) {
+                throw new Error('Token não encontrado')
+              }
+
+              console.log('💾 Salvando alterações do ticket:', selectedTicketForEdit.id, updatedData)
+              await updateTicket(token, selectedTicketForEdit.id, updatedData)
+              
+              // Atualizar o ticket na lista
+              setTickets(prevTickets => 
+                prevTickets.map(t => 
+                  t.id === selectedTicketForEdit.id 
+                    ? { ...t, ...updatedData }
+                    : t
+                )
+              )
+
+              // Atualizar o ticket no modal se estiver aberto
+              if (selectedTicketForModal?.id === selectedTicketForEdit.id) {
+                setSelectedTicketForModal({
+                  ...selectedTicketForModal,
+                  ...updatedData
+                })
+              }
+
+              setShowEditModal(false)
+              setSelectedTicketForEdit(null)
+              showSuccessToast('Chamado atualizado com sucesso!')
+              
+              // Recarregar a lista para garantir dados atualizados
+              fetchOpenTickets()
+            } catch (error: any) {
+              console.error('❌ Erro ao atualizar chamado:', error)
+              showErrorToast(handleApiError(error))
+            } finally {
+              setEditingTicket(false)
+            }
+          }}
+          isSaving={editingTicket}
+        />
+      )}
     </div>
   )
 }
 
 // Componentes placeholder para outras seções
 function ClientesList() {
+  const [servidores, setServidores] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchServidores()
+  }, [])
+
+  const fetchServidores = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://127.0.0.1:8000/servidores/todos')
+      
+      if (response.ok) {
+        const data = await response.json()
+        setServidores(data)
+      } else {
+        console.error('Erro ao buscar servidores')
+      }
+    } catch (error) {
+      console.error('Erro ao buscar servidores:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="clientes-container">
-      <h1 className="page-title">Clientes</h1>
-      <p>Lista de clientes em desenvolvimento...</p>
+      <div className="page-header">
+        <h1 className="page-title">Servidores</h1>
+      </div>
+      
+      {loading ? (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Carregando servidores...</p>
+        </div>
+      ) : (
+        <div className="tecnicos-table-container">
+          <div className="table-header">
+            <div className="table-cell">Nome</div>
+            <div className="table-cell">Email</div>
+            <div className="table-cell">Status</div>
+          </div>
+          {servidores.map((servidor: any, index: number) => (
+            <div key={index} className="table-row">
+              <div className="table-cell">
+                <div className="user-info">
+                  <div className="user-avatar">
+                    {(servidor.full_name || servidor.username)
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </div>
+                  <span>{servidor.full_name || servidor.username}</span>
+                </div>
+              </div>
+              <div className="table-cell">{servidor.email}</div>
+              <div className="table-cell">
+                {servidor.is_active ? (
+                  <span className="status-badge approved">✅ Ativo</span>
+                ) : (
+                  <span className="status-badge pending">⏸️ Inativo</span>
+                )}
+              </div>
+            </div>
+          ))}
+          {servidores.length === 0 && (
+            <div className="empty-state">
+              <p>Nenhum servidor encontrado</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

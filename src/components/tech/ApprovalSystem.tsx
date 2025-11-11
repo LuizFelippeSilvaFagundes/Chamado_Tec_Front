@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { getApprovalTickets, approveTicketRequest, rejectTicketRequest, reassignTicket as reassignTicketAPI, getTecnicosTodos } from '../../api/api'
 
 interface ApprovalTicket {
   id: number
@@ -29,7 +30,7 @@ interface Technician {
 }
 
 function ApprovalSystem() {
-  const { token, user } = useAuth()
+  const { token } = useAuth()
   const [approvalTickets, setApprovalTickets] = useState<ApprovalTicket[]>([])
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,117 +41,99 @@ function ApprovalSystem() {
   const [newTechnician, setNewTechnician] = useState('')
 
   useEffect(() => {
+    if (token) {
     fetchApprovalData()
-  }, [])
+      fetchTechnicians()
+    }
+  }, [token])
 
   const fetchApprovalData = async () => {
     try {
       setLoading(true)
-      // Simulação de dados - substituir pela chamada real da API
-      const mockApprovalTickets: ApprovalTicket[] = [
-        {
-          id: 201,
-          title: 'Substituição de servidor crítico',
-          description: 'Servidor principal apresentou falha e precisa ser substituído imediatamente',
-          priority: 'critical',
-          category: 'Hardware',
-          user_name: 'João Silva',
-          current_technician: 'Maria Santos',
-          reason: 'Necessário técnico especializado em servidores',
-          status: 'pending_reassignment',
-          created_at: '2024-01-15T10:00:00Z',
-          requested_at: '2024-01-15T10:30:00Z',
-          estimated_cost: 15000,
-          requires_approval: true
-        },
-        {
-          id: 202,
-          title: 'Atualização de software licenciado',
-          description: 'Solicitação de atualização do sistema operacional em 50 computadores',
-          priority: 'high',
-          category: 'Software',
-          user_name: 'Pedro Costa',
-          current_technician: 'João Silva',
-          reason: 'Custo elevado requer aprovação gerencial',
-          status: 'pending_approval',
-          created_at: '2024-01-15T09:00:00Z',
-          requested_at: '2024-01-15T09:15:00Z',
-          estimated_cost: 5000,
-          requires_approval: true
-        },
-        {
-          id: 203,
-          title: 'Manutenção preventiva - rede',
-          description: 'Manutenção programada da infraestrutura de rede',
-          priority: 'medium',
-          category: 'Rede',
-          user_name: 'Ana Oliveira',
-          current_technician: 'Pedro Costa',
-          requested_technician: 'Carlos Mendes',
-          reason: 'Técnico atual sobrecarregado',
-          status: 'pending_reassignment',
-          created_at: '2024-01-15T08:00:00Z',
-          requested_at: '2024-01-15T08:30:00Z',
-          requires_approval: false
-        },
-        {
-          id: 204,
-          title: 'Instalação de nova impressora',
-          description: 'Solicitação de instalação de impressora multifuncional',
-          priority: 'low',
-          category: 'Periféricos',
-          user_name: 'Maria Santos',
-          current_technician: 'Ana Oliveira',
-          reason: 'Aprovação de compra necessária',
-          status: 'pending_approval',
-          created_at: '2024-01-15T07:00:00Z',
-          requested_at: '2024-01-15T07:20:00Z',
-          estimated_cost: 2500,
-          requires_approval: true
-        }
-      ]
+      
+      if (!token) {
+        console.error('❌ Token não disponível')
+        return
+      }
 
-      const mockTechnicians: Technician[] = [
-        {
-          id: 1,
-          name: 'Carlos Mendes',
-          specialty: ['Rede', 'Servidores'],
-          current_load: 3,
-          status: 'available',
-          rating: 4.8
-        },
-        {
-          id: 2,
-          name: 'Fernanda Lima',
-          specialty: ['Hardware', 'Software'],
-          current_load: 7,
-          status: 'busy',
-          rating: 4.6
-        },
-        {
-          id: 3,
-          name: 'Roberto Alves',
-          specialty: ['Periféricos', 'Hardware'],
-          current_load: 2,
-          status: 'available',
-          rating: 4.9
-        },
-        {
-          id: 4,
-          name: 'Lucia Ferreira',
-          specialty: ['Software', 'Rede'],
-          current_load: 5,
-          status: 'available',
-          rating: 4.7
-        }
-      ]
+      console.log('✅ Buscando tickets de aprovação da API...')
+      
+      try {
+        const response = await getApprovalTickets(token)
+        const data = response.data || []
 
-      setApprovalTickets(mockApprovalTickets)
-      setTechnicians(mockTechnicians)
+        const approvalTicketsData: ApprovalTicket[] = data.map((item: any) => ({
+          id: item.id || item.ticket_id,
+          title: item.title || item.ticket?.title || 'Sem título',
+          description: item.description || item.ticket?.description || '',
+          priority: item.priority || item.ticket?.priority || 'medium',
+          category: item.category || item.ticket?.problem_type || item.ticket?.category || 'Outros',
+          user_name: item.user_name || item.ticket?.user?.full_name || item.user?.full_name || 'Usuário',
+          current_technician: item.current_technician || item.ticket?.assigned_technician?.full_name || 'Não atribuído',
+          requested_technician: item.requested_technician || item.new_technician?.full_name,
+          reason: item.reason || item.request_reason || '',
+          status: (item.status || 'pending_approval') as ApprovalTicket['status'],
+          created_at: item.created_at || item.ticket?.created_at || new Date().toISOString(),
+          requested_at: item.requested_at || item.created_at || new Date().toISOString(),
+          estimated_cost: item.estimated_cost || item.cost,
+          requires_approval: item.requires_approval !== false,
+          approval_reason: item.approval_reason
+        }))
+
+        setApprovalTickets(approvalTicketsData)
+        console.log('✅ Tickets de aprovação carregados:', approvalTicketsData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar tickets de aprovação:', error.response?.data || error.message)
+        setApprovalTickets([])
+      }
     } catch (error) {
-      console.error('Erro ao buscar dados de aprovação:', error)
+      console.error('❌ Erro geral ao buscar dados de aprovação:', error)
+      setApprovalTickets([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTechnicians = async () => {
+    try {
+      if (!token) return
+
+      console.log('👥 Buscando técnicos para reatribuição...')
+      
+      try {
+        // Buscar técnicos usando endpoint com autenticação
+        const response = await fetch('http://127.0.0.1:8000/tech/todos', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error('Erro ao buscar técnicos')
+        }
+        
+        const data = await response.json()
+
+        const techniciansData: Technician[] = data
+          .filter((tech: any) => tech.is_active && tech.is_approved)
+          .map((tech: any) => ({
+            id: tech.id,
+            name: tech.full_name || tech.name,
+            specialty: tech.specialty || [],
+            current_load: tech.current_load || tech.active_tickets_count || 0,
+            status: tech.status || 'available',
+            rating: tech.rating || 4.5
+          }))
+
+        setTechnicians(techniciansData)
+        console.log('✅ Técnicos carregados:', techniciansData)
+      } catch (error: any) {
+        console.error('❌ Erro ao buscar técnicos:', error.response?.data || error.message)
+        setTechnicians([])
+      }
+    } catch (error) {
+      console.error('❌ Erro geral ao buscar técnicos:', error)
+      setTechnicians([])
     }
   }
 
@@ -161,18 +144,30 @@ function ApprovalSystem() {
 
   const approveTicket = async (ticketId: number, approved: boolean) => {
     try {
+      if (!token) {
+        alert('Token não disponível')
+        return
+      }
+
       const reason = approved ? approvalReason : rejectionReason
       if (!reason.trim()) {
         alert('Por favor, informe o motivo da decisão')
         return
       }
 
-      // Simulação de aprovação - substituir pela chamada real da API
       console.log(`${approved ? 'Aprovando' : 'Rejeitando'} ticket ${ticketId}:`, reason)
 
+      try {
+        if (approved) {
+          await approveTicketRequest(token, ticketId, reason)
+        } else {
+          await rejectTicketRequest(token, ticketId, reason)
+        }
+
+        // Atualizar lista local
       const updatedTickets = approvalTickets.map(ticket =>
         ticket.id === ticketId
-          ? { ...ticket, status: approved ? 'approved' : 'rejected', approval_reason: reason }
+            ? { ...ticket, status: (approved ? 'approved' : 'rejected') as ApprovalTicket['status'], approval_reason: reason }
           : ticket
       )
       setApprovalTickets(updatedTickets)
@@ -180,35 +175,64 @@ function ApprovalSystem() {
       setApprovalReason('')
       setRejectionReason('')
       setSelectedTicket(null)
-      alert(`Ticket ${approved ? 'aprovado' : 'rejeitado'} com sucesso!`)
+        alert(`✅ Ticket ${approved ? 'aprovado' : 'rejeitado'} com sucesso!`)
+        
+        // Recarregar dados
+        fetchApprovalData()
+      } catch (error: any) {
+        console.error(`❌ Erro ao ${approved ? 'aprovar' : 'rejeitar'} ticket:`, error.response?.data || error.message)
+        alert(`Erro ao ${approved ? 'aprovar' : 'rejeitar'} ticket: ${error.response?.data?.detail || error.message}`)
+      }
     } catch (error) {
-      console.error('Erro ao processar aprovação:', error)
+      console.error('❌ Erro ao processar aprovação:', error)
       alert('Erro ao processar aprovação')
     }
   }
 
   const reassignTicket = async (ticketId: number) => {
     try {
+      if (!token) {
+        alert('Token não disponível')
+        return
+      }
+
       if (!newTechnician) {
         alert('Por favor, selecione um técnico')
         return
       }
 
-      // Simulação de reatribuição - substituir pela chamada real da API
-      console.log('Reatribuindo ticket', ticketId, 'para técnico', newTechnician)
+      // Encontrar o ID do técnico selecionado
+      const selectedTech = technicians.find(tech => tech.name === newTechnician)
+      if (!selectedTech) {
+        alert('Técnico não encontrado')
+        return
+      }
 
+      console.log('🔄 Reatribuindo ticket', ticketId, 'para técnico', selectedTech.id)
+
+      try {
+        await reassignTicketAPI(token, ticketId, selectedTech.id, 'Reatribuição solicitada')
+
+        // Atualizar lista local
       const updatedTickets = approvalTickets.map(ticket =>
         ticket.id === ticketId
-          ? { ...ticket, status: 'approved', current_technician: newTechnician }
+            ? { ...ticket, status: 'approved' as ApprovalTicket['status'], current_technician: newTechnician }
           : ticket
       )
       setApprovalTickets(updatedTickets)
 
       setNewTechnician('')
       setSelectedTicket(null)
-      alert('Ticket reatribuído com sucesso!')
+        alert('✅ Ticket reatribuído com sucesso!')
+        
+        // Recarregar dados
+        fetchApprovalData()
+      } catch (error: any) {
+        console.error('❌ Erro ao reatribuir ticket:', error.response?.data || error.message)
+        alert(`Erro ao reatribuir ticket: ${error.response?.data?.detail || error.message}`)
+      }
     } catch (error) {
-      console.error('Erro ao reatribuir ticket:', error)
+      console.error('❌ Erro ao reatribuir ticket:', error)
       alert('Erro ao reatribuir ticket')
     }
   }

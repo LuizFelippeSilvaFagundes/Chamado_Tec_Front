@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTime, formatDateOnly, isDateOverdue } from '../../utils/dateUtils'
-import { getAssignedTickets, updateTicketStatus } from '../../api/api'
+import { getAdminAssignedTickets, updateTicketStatus } from '../../api/api'
+import AttachmentViewer from '../AttachmentViewer'
 import './AssignedTickets.css'
 
 interface Ticket {
@@ -39,16 +40,9 @@ const priorityConfig = {
   critical: { label: 'Crítica', color: '#DC2626' }
 }
 
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase())
-    .slice(0, 2)
-    .join('')
-}
 
 function AssignedTickets() {
-  const { token, user } = useAuth()
+  const { token } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,8 +57,10 @@ function AssignedTickets() {
   })
 
   useEffect(() => {
+    if (token) {
     fetchAssignedTickets()
-  }, [])
+    }
+  }, [token])
 
   useEffect(() => {
     filterTickets()
@@ -110,10 +106,10 @@ function AssignedTickets() {
         throw new Error('Token não encontrado')
       }
 
-      // Buscar tickets atribuídos ao técnico atual
-      const response = await getAssignedTickets(token)
-      const data = response.data
-      console.log('🎫 Meus tickets atribuídos:', data)
+      // Buscar tickets atribuídos pelo admin ao técnico atual
+      const response = await getAdminAssignedTickets(token)
+      const data = response.data || []
+      console.log('🎫 Tickets atribuídos pelo admin:', data)
       
       // Converter os dados da API para o formato esperado pelo componente
       const formattedTickets: Ticket[] = data.map((ticket: any) => ({
@@ -138,44 +134,12 @@ function AssignedTickets() {
       
       setTickets(formattedTickets)
       setFilteredTickets(formattedTickets)
-    } catch (error) {
-      console.error('Erro ao buscar tickets atribuídos:', error)
-      setError('Erro ao carregar chamados atribuídos')
-      showNotification('error', 'Erro ao carregar chamados atribuídos')
-      
-      // Fallback para API antiga se necessário
-      console.log('Tentando API de fallback...')
-      try {
-        const res = await fetch('http://127.0.0.1:8000/tech/tickets/assigned', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        if (res.ok) {
-          const data = await res.json()
-          const formattedTickets: Ticket[] = data.map((ticket: any) => ({
-            id: ticket.id,
-            title: ticket.title,
-            description: ticket.description,
-            priority: ticket.priority,
-            status: ticket.status,
-            category: ticket.problem_type,
-            created_at: ticket.created_at,
-            updated_at: ticket.updated_at || ticket.created_at,
-            user_name: ticket.user?.full_name || ticket.user?.username || 'Usuário',
-            equipment_id: ticket.equipment_id || 'N/A',
-            sla_deadline: ticket.sla_deadline || ticket.created_at,
-            estimated_time: ticket.estimated_time || 30,
-            assigned_technician_id: ticket.assigned_technician_id,
-            user_id: ticket.user_id,
-            assigned_by_admin: ticket.assigned_by_admin,
-            attachments: ticket.attachments || [],
-            comments: ticket.comments || []
-          }))
-          setTickets(formattedTickets)
-          setFilteredTickets(formattedTickets)
-        }
-      } catch (fallbackError) {
-        console.error('Erro no fallback:', fallbackError)
-      }
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar tickets atribuídos pelo admin:', error.response?.data || error.message)
+      setError('Erro ao carregar chamados atribuídos pelo admin')
+      showNotification('error', 'Erro ao carregar chamados atribuídos pelo admin')
+      setTickets([])
+      setFilteredTickets([])
     } finally {
       setLoading(false)
     }
@@ -229,8 +193,8 @@ function AssignedTickets() {
       )}
       
       <div className="section-header">
-        <h1>📋 Gerenciar Chamados</h1>
-        <p className="section-subtitle">Chamados atribuídos pelo admin ou que você pegou da fila</p>
+        <h1>🎫 Meus Chamados</h1>
+        <p className="section-subtitle">Chamados atribuídos pelo administrador</p>
       </div>
 
       {error && (
@@ -466,7 +430,7 @@ function AssignedTickets() {
                       <div className="progress-icon">🔧</div>
                       <div className="progress-content">
                         <div className="progress-title">Em Atendimento</div>
-                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-date">{selectedTicket.updated_at ? formatDateTime(selectedTicket.updated_at) : formatDateTime(selectedTicket.created_at)}</div>
                         <div className="progress-description">Você está trabalhando na resolução deste chamado.</div>
                       </div>
                     </div>
@@ -477,7 +441,7 @@ function AssignedTickets() {
                       <div className="progress-icon">✅</div>
                       <div className="progress-content">
                         <div className="progress-title">Chamado Resolvido</div>
-                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-date">{selectedTicket.updated_at ? formatDateTime(selectedTicket.updated_at) : formatDateTime(selectedTicket.created_at)}</div>
                         <div className="progress-description">Chamado concluído com sucesso!</div>
                       </div>
                     </div>
@@ -488,7 +452,7 @@ function AssignedTickets() {
                       <div className="progress-icon">🔒</div>
                       <div className="progress-content">
                         <div className="progress-title">Chamado Fechado</div>
-                        <div className="progress-date">{formatDateTime(selectedTicket.updated_at)}</div>
+                        <div className="progress-date">{selectedTicket.updated_at ? formatDateTime(selectedTicket.updated_at) : formatDateTime(selectedTicket.created_at)}</div>
                         <div className="progress-description">Chamado finalizado e arquivado.</div>
                       </div>
                     </div>
@@ -526,20 +490,18 @@ function AssignedTickets() {
 
               {/* Anexos */}
               {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
-                <div className="ticket-attachments">
-                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
-                  <div className="attachments-list">
-                    {selectedTicket.attachments.map((attachment, index) => (
-                      <div key={index} className="attachment-item">
-                        <div className="attachment-icon">📄</div>
-                        <div className="attachment-info">
-                          <span className="attachment-name">{attachment.filename}</span>
-                          <span className="attachment-size">{(attachment.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <AttachmentViewer
+                  attachments={selectedTicket.attachments.map((att: any) => ({
+                    id: att.id,
+                    filename: att.filename || att.name || 'Arquivo',
+                    url: att.url || att.path,
+                    size: att.size,
+                    type: att.type || att.mime_type,
+                    created_at: att.created_at
+                  }))}
+                  ticketId={selectedTicket.id}
+                  canDelete={false}
+                />
               )}
 
               {/* Comentários */}

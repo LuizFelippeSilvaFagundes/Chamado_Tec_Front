@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import OpenTicket from '../components/OpenTicket'
 import MyTickets from '../components/MyTickets'
+import KnowledgeBase from '../components/KnowledgeBase'
 import { useAuth } from '../contexts/AuthContext'
 import './UserDashboard.css'
 
@@ -25,7 +26,7 @@ function UserDashboard() {
       case 'my-tickets':
         return <MyTickets />
       case 'knowledge-base':
-        return <div className="knowledge-base">Base de Conhecimento em desenvolvimento...</div>
+        return <KnowledgeBase />
       default:
         return <OpenTicket onTicketCreated={() => handleSectionChange('my-tickets')} />
     }

@@ -11,7 +11,7 @@ interface AvatarUploadProps {
 }
 
 function AvatarUpload({ onClose, onAvatarUpdate }: AvatarUploadProps) {
-  const { token, user } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [crop, setCrop] = useState<Crop>({
     unit: '%',
@@ -136,19 +136,16 @@ function AvatarUpload({ onClose, onAvatarUpdate }: AvatarUploadProps) {
       const avatarUrl = response.data.avatar_url;
       
       setSuccess('✅ Avatar atualizado com sucesso!');
-      setCurrentAvatar(`http://127.0.0.1:8000${avatarUrl}`);
       setShowCrop(false);
       setSelectedImage(null);
       
-      // Atualizar localStorage
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        const userData = JSON.parse(savedUser);
-        userData.avatar_url = avatarUrl;
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
+      // Atualizar contexto e localStorage (isso atualiza o user no contexto)
+      updateUser({ avatar_url: avatarUrl });
+      
+      // Atualizar estado local do componente
+      setCurrentAvatar(`http://127.0.0.1:8000${avatarUrl}`);
 
-      // Callback para atualizar Header em tempo real
+      // Callback para atualizar componentes em tempo real
       if (onAvatarUpdate) {
         onAvatarUpdate(avatarUrl);
       }
@@ -184,18 +181,15 @@ function AvatarUpload({ onClose, onAvatarUpdate }: AvatarUploadProps) {
     try {
       await deleteMyAvatar(token);
       
-      setCurrentAvatar(null);
       setSuccess('🗑️ Avatar deletado com sucesso!');
 
-      // Atualizar localStorage
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        const userData = JSON.parse(savedUser);
-        userData.avatar_url = null;
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
+      // Atualizar contexto e localStorage (isso atualiza o user no contexto)
+      updateUser({ avatar_url: null });
+      
+      // Atualizar estado local do componente
+      setCurrentAvatar(null);
 
-      // Callback para atualizar Header em tempo real
+      // Callback para atualizar componentes em tempo real
       if (onAvatarUpdate) {
         onAvatarUpdate(null);
       }

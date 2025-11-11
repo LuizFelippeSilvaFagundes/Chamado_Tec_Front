@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { changePassword } from '../api/api'
 import AvatarUpload from './AvatarUpload'
+import NotificationCenter from './NotificationCenter'
 
 interface SidebarProps {
   activeSection: 'open-ticket' | 'my-tickets' | 'knowledge-base'
@@ -15,16 +16,8 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const [showAccountModal, setShowAccountModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null | undefined>(null)
-  
-  // Carregar avatar do user
-  useEffect(() => {
-    if (user?.avatar_url) {
-      setUserAvatarUrl(user.avatar_url)
-    } else {
-      setUserAvatarUrl(null)
-    }
-  }, [user])
+  // Usar avatar diretamente do contexto (atualiza automaticamente)
+  const userAvatarUrl = user?.avatar_url
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [currentPwd, setCurrentPwd] = useState('')
@@ -37,7 +30,8 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const navigate = useNavigate()
 
   const handleAvatarUpdate = (newAvatarUrl: string | null) => {
-    setUserAvatarUrl(newAvatarUrl)
+    // O contexto já foi atualizado pelo AvatarUpload, apenas força re-render se necessário
+    console.log('✅ Avatar atualizado no Sidebar:', newAvatarUrl)
   }
 
   const menuItems = [
@@ -51,6 +45,11 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
       label: 'Criar chamado',
       icon: '+',
       isButton: true
+    },
+    {
+      id: 'knowledge-base' as const,
+      label: 'Base de Conhecimento',
+      icon: '📚'
     }
   ]
 
@@ -103,7 +102,8 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
 
       {/* User Profile on top area */}
       <div className="sidebar-user">
-        <div className="user-profile">
+        <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '0 1rem' }}>
+          <NotificationCenter />
           <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
             {userAvatarUrl ? (
               <img 

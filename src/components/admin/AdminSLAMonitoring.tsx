@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getSLAMetrics, getSLATickets, getSLATechnicianPerformance } from '../../api/api'
+import { getSLATechnicianPerformance, getTecnicosTodos, apiWithAuth } from '../../api/api'
 
 interface SLAMetrics {
   overallCompliance: number
@@ -37,27 +37,43 @@ interface SLATicket {
   isOverdue: boolean
 }
 
-function SLAMonitoring() {
+interface Technician {
+  id: number
+  full_name: string
+  email: string
+  is_active: boolean
+  is_approved: boolean
+}
+
+function AdminSLAMonitoring() {
   const { token } = useAuth()
   const [slaMetrics, setSlaMetrics] = useState<SLAMetrics | null>(null)
   const [technicianPerformance, setTechnicianPerformance] = useState<TechnicianPerformance[]>([])
   const [slaTickets, setSlaTickets] = useState<SLATicket[]>([])
+  const [technicians, setTechnicians] = useState<Technician[]>([])
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(30)
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   useEffect(() => {
-    if (!token) return
-    
-    fetchSLAData()
+    if (token) {
+      fetchTechnicians()
+    }
   }, [token])
+
+  useEffect(() => {
+    if (token) {
+      fetchSLAData()
+    }
+  }, [token, selectedTechnicianId])
 
   useEffect(() => {
     if (!autoRefresh || !token) return
     
     const interval = setInterval(fetchSLAData, refreshInterval * 1000)
     return () => clearInterval(interval)
-  }, [refreshInterval, autoRefresh, token])
+  }, [refreshInterval, autoRefresh, token, selectedTechnicianId])
 
   // Calcular tempo restante até deadline
   const calculateTimeRemaining = (deadline: string): number => {
@@ -65,6 +81,33 @@ function SLAMonitoring() {
     const deadlineTime = new Date(deadline).getTime()
     const diffMs = deadlineTime - now
     return Math.max(0, Math.floor(diffMs / (1000 * 60))) // Retorna em minutos
+  }
+
+  const fetchTechnicians = async () => {
+    try {
+      if (!token) return
+
+      console.log('👥 Buscando técnicos para seleção...')
+      
+      const response = await getTecnicosTodos()
+      const data = response.data || []
+
+      const techniciansData: Technician[] = data
+        .filter((tech: any) => tech.is_active && tech.is_approved)
+        .map((tech: any) => ({
+          id: tech.id,
+          full_name: tech.full_name || tech.name || 'Técnico',
+          email: tech.email || '',
+          is_active: tech.is_active || false,
+          is_approved: tech.is_approved || false
+        }))
+
+      setTechnicians(techniciansData)
+      console.log('✅ Técnicos carregados:', techniciansData)
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar técnicos:', error.response?.data || error.message)
+      setTechnicians([])
+    }
   }
 
   const fetchSLAData = async () => {
@@ -78,9 +121,14 @@ function SLAMonitoring() {
 
       console.log('⏱️ Buscando dados de SLA da API...')
       
-      // Buscar métricas de SLA
+      // Buscar métricas de SLA (geral ou filtrado por técnico)
       try {
-        const metricsResponse = await getSLAMetrics(token)
+        const endpoint = selectedTechnicianId 
+          ? `/sla/metrics?technician_id=${selectedTechnicianId}`
+          : '/sla/metrics'
+        
+        const apiAuth = apiWithAuth(token)
+        const metricsResponse = await apiAuth.get(endpoint)
         const metricsData = metricsResponse.data
 
         if (metricsData) {
@@ -101,7 +149,6 @@ function SLAMonitoring() {
         }
       } catch (error: any) {
         console.error('❌ Erro ao buscar métricas de SLA:', error.response?.data || error.message)
-        // Se não conseguir buscar métricas, inicializar com valores zerados
         setSlaMetrics({
           overallCompliance: 0,
           criticalCompliance: 0,
@@ -128,7 +175,7 @@ function SLAMonitoring() {
           avgResolutionTime: tech.avg_resolution_time || tech.avg_time || 0,
           slaCompliance: tech.sla_compliance || tech.compliance || 0,
           currentLoad: tech.current_load || tech.active_tickets || 0,
-          status: tech.status || 'away' // online, busy, away
+          status: tech.status || 'away'
         }))
 
         setTechnicianPerformance(techniciansData)
@@ -140,7 +187,12 @@ function SLAMonitoring() {
 
       // Buscar tickets com SLA ativo
       try {
-        const ticketsResponse = await getSLATickets(token)
+        const ticketsEndpoint = selectedTechnicianId
+          ? `/sla/tickets?technician_id=${selectedTechnicianId}`
+          : '/sla/tickets'
+        
+        const apiAuth = apiWithAuth(token)
+        const ticketsResponse = await apiAuth.get(ticketsEndpoint)
         const ticketsData = ticketsResponse.data || []
 
         const slaTicketsData: SLATicket[] = ticketsData.map((ticket: any) => {
@@ -219,7 +271,7 @@ function SLAMonitoring() {
     return 'time-normal'
   }
 
-  if (loading) {
+  if (loading && !slaMetrics) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
@@ -238,12 +290,28 @@ function SLAMonitoring() {
   }
 
   return (
-    <div className="sla-monitoring">
+    <div className="admin-sla-monitoring" style={{ padding: '2rem' }}>
       <div className="section-header">
         <h2>⏱️ SLA & Produtividade</h2>
-        <div className="section-actions">
-          <div className="refresh-controls">
-            <label>
+        <div className="section-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="technician-selector" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="technician-select" style={{ fontWeight: 'bold' }}>Filtrar por técnico:</label>
+            <select
+              id="technician-select"
+              value={selectedTechnicianId || ''}
+              onChange={(e) => setSelectedTechnicianId(e.target.value ? Number(e.target.value) : null)}
+              style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+            >
+              <option value="">Todos os técnicos</option>
+              {technicians.map(tech => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="refresh-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <input 
                 type="checkbox" 
                 checked={autoRefresh}
@@ -254,7 +322,7 @@ function SLAMonitoring() {
             <select 
               value={refreshInterval} 
               onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              className="refresh-select"
+              style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
             >
               <option value="10">10s</option>
               <option value="30">30s</option>
@@ -262,7 +330,18 @@ function SLAMonitoring() {
               <option value="300">5min</option>
             </select>
           </div>
-          <button className="action-btn primary" onClick={fetchSLAData}>
+          <button 
+            onClick={fetchSLAData}
+            style={{ 
+              padding: '0.5rem 1rem', 
+              backgroundColor: '#3b82f6', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px', 
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
             🔄 Atualizar
           </button>
         </div>
@@ -306,16 +385,13 @@ function SLAMonitoring() {
         <div className="stat-card">
           <h3>Tempo Médio Resolução</h3>
           <div className="stat-value">{slaMetrics.avgResolutionTime.toFixed(1)}h</div>
-          <div className="stat-change positive">
-            📈 Melhorou 15% este mês
-          </div>
         </div>
 
         <div className="stat-card">
           <h3>Chamados em SLA</h3>
           <div className="stat-value">{slaMetrics.ticketsInSLA}</div>
-          <div className="stat-change positive">
-            ✅ {slaMetrics.ticketsOutSLA} fora do SLA
+          <div className="stat-change">
+            ⚠️ {slaMetrics.ticketsOutSLA} fora do SLA
           </div>
         </div>
 
@@ -389,46 +465,40 @@ function SLAMonitoring() {
                 <th>Prioridade</th>
                 <th>Status</th>
                 <th>Técnico</th>
-                <th>Tempo Restante</th>
-                <th>Ação</th>
-              </tr>
+                  <th>Tempo Restante</th>
+                </tr>
             </thead>
             <tbody>
-              {slaTickets.map((ticket) => (
-                <tr key={ticket.id} className={ticket.isOverdue ? 'overdue-row' : ''}>
-                  <td>#{ticket.id}</td>
-                  <td>{ticket.title}</td>
-                  <td>
-                    <span className={getPriorityColor(ticket.priority)}>
-                      {ticket.priority}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${ticket.status}`}>
-                      {ticket.status}
-                    </span>
-                  </td>
-                  <td>{ticket.technician}</td>
-                  <td>
-                    <span className={`time-remaining ${getTimeRemainingColor(ticket.timeRemaining, ticket.priority)}`}>
-                      {ticket.isOverdue ? 'VENCIDO' : formatTime(ticket.timeRemaining)}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="action-btn primary" title="Ver detalhes">
-                        👁️
-                      </button>
-                      <button className="action-btn secondary" title="Chat">
-                        💬
-                      </button>
-                      <button className="action-btn success" title="Priorizar">
-                        ⚡
-                      </button>
-                    </div>
+              {slaTickets.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
+                    Nenhum ticket com SLA ativo no momento
                   </td>
                 </tr>
-              ))}
+              ) : (
+                slaTickets.map((ticket) => (
+                  <tr key={ticket.id} className={ticket.isOverdue ? 'overdue-row' : ''}>
+                    <td>#{ticket.id}</td>
+                    <td>{ticket.title}</td>
+                    <td>
+                      <span className={getPriorityColor(ticket.priority)}>
+                        {ticket.priority}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${ticket.status}`}>
+                        {ticket.status}
+                      </span>
+                    </td>
+                    <td>{ticket.technician}</td>
+                    <td>
+                      <span className={`time-remaining ${getTimeRemainingColor(ticket.timeRemaining, ticket.priority)}`}>
+                        {ticket.isOverdue ? 'VENCIDO' : formatTime(ticket.timeRemaining)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -480,4 +550,5 @@ function SLAMonitoring() {
   )
 }
 
-export default SLAMonitoring
+export default AdminSLAMonitoring
+

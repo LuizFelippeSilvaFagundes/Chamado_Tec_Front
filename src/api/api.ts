@@ -85,6 +85,18 @@ export const getAssignedTickets = async (token: string) => {
   return await apiAuth.get("/tech/tickets/assigned");
 };
 
+// Buscar tickets resolvidos pelo técnico logado
+export const getResolvedTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get("/tech/tickets/resolved");
+};
+
+// Buscar tickets atribuídos pelo admin ao técnico logado
+export const getAdminAssignedTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get("/tech/tickets/admin-assigned");
+};
+
 // Buscar apenas tickets disponíveis para pegar
 export const getAvailableTickets = async (token: string) => {
   const apiAuth = apiWithAuth(token);
@@ -101,6 +113,22 @@ export const takeTicket = async (token: string, ticketId: number) => {
 export const updateTicketStatus = async (token: string, ticketId: number, status: string) => {
   const apiAuth = apiWithAuth(token);
   return await apiAuth.put(`/tech/tickets/${ticketId}/status`, { status });
+};
+
+// Atualizar ticket completo (admin)
+export const updateTicket = async (
+  token: string, 
+  ticketId: number, 
+  data: {
+    title?: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    problem_type?: string;
+    status?: string;
+  }
+) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put(`/admin/tickets/${ticketId}`, data);
 };
 
 // Perfil do usuário (frontend)
@@ -164,4 +192,264 @@ export const downloadTicketAttachment = (ticketId: number, filename: string) => 
 export const deleteTicketAttachment = async (token: string, ticketId: number, filename: string) => {
   const apiAuth = apiWithAuth(token);
   return await apiAuth.delete(`/tickets/${ticketId}/attachments/${filename}`);
+};
+
+// === FUNÇÕES PARA LISTAR USUÁRIOS POR ROLE ===
+
+// Listar apenas servidores
+export const getServidoresTodos = async () => {
+  return await api.get("/servidores/todos");
+};
+
+// Listar apenas técnicos
+export const getTecnicosTodos = async () => {
+  return await api.get("/tech/todos");
+};
+
+// Listar apenas administradores
+export const getAdminsTodos = async () => {
+  return await api.get("/admin/todos");
+};
+
+// === FUNÇÕES PARA COMENTÁRIOS/HISTÓRICO DE TICKETS ===
+
+// Buscar comentários/histórico de um ticket
+export const getTicketComments = async (token: string, ticketId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/tickets/${ticketId}/comments`);
+};
+
+// Buscar histórico completo de um ticket
+export const getTicketHistory = async (token: string, ticketId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/tickets/${ticketId}/history`);
+};
+
+// === FUNÇÕES PARA RELATÓRIOS ===
+
+// Buscar relatório geral/overview
+export const getReportsOverview = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/overview?period=${period}`);
+};
+
+// Buscar relatório detalhado
+export const getReportsDetailed = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/detailed?period=${period}`);
+};
+
+// Buscar estatísticas por categoria
+export const getReportsCategories = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/categories?period=${period}`);
+};
+
+// Buscar performance dos técnicos
+export const getReportsTechnicians = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/technicians?period=${period}`);
+};
+
+// Buscar estatísticas de equipamentos
+export const getReportsEquipment = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/equipment?period=${period}`);
+};
+
+// Buscar tendências mensais
+export const getReportsTrends = async (token: string, period: string = '30') => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/reports/trends?period=${period}`);
+};
+
+// === FUNÇÕES PARA SLA & MONITORAMENTO ===
+
+// Buscar métricas de SLA
+export const getSLAMetrics = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/sla/metrics');
+};
+
+// Buscar tickets com SLA ativo
+export const getSLATickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/sla/tickets');
+};
+
+// Buscar performance dos técnicos para SLA
+export const getSLATechnicianPerformance = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/sla/technicians/performance');
+};
+
+// Buscar alertas de SLA
+export const getSLAAlerts = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/sla/alerts');
+};
+
+// === FUNÇÕES PARA SISTEMA DE APROVAÇÃO ===
+
+// Buscar tickets pendentes de aprovação
+export const getApprovalTickets = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/approvals/pending');
+};
+
+// Aprovar solicitação
+export const approveTicketRequest = async (token: string, approvalId: number, reason: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/approvals/${approvalId}/approve`, { reason });
+};
+
+// Rejeitar solicitação
+export const rejectTicketRequest = async (token: string, approvalId: number, reason: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/approvals/${approvalId}/reject`, { reason });
+};
+
+// Reatribuir chamado
+export const reassignTicket = async (token: string, ticketId: number, technicianId: number, reason?: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/approvals/${ticketId}/reassign`, { technician_id: technicianId, reason });
+};
+
+// === FUNÇÕES PARA APROVAÇÃO DE TÉCNICOS ===
+
+// Buscar técnicos pendentes de aprovação
+export const getPendingTechnicians = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/admin/technicians/pending');
+};
+
+// Aprovar técnico
+export const approveTechnician = async (token: string, technicianId: number, reason: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/admin/technicians/${technicianId}/approve`, { reason });
+};
+
+// Rejeitar técnico
+export const rejectTechnician = async (token: string, technicianId: number, reason: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/admin/technicians/${technicianId}/reject`, { reason });
+};
+
+// === FUNÇÕES PARA HISTÓRICO DE EQUIPAMENTOS ===
+
+// Buscar todos os equipamentos
+export const getEquipments = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/equipment');
+};
+
+// Buscar histórico de um equipamento
+export const getEquipmentHistory = async (token: string, equipmentId: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/equipment/${equipmentId}/history`);
+};
+
+// Buscar tickets relacionados a um equipamento
+export const getEquipmentTickets = async (token: string, equipmentId: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/equipment/${equipmentId}/tickets`);
+};
+
+// === FUNÇÕES PARA NOTIFICAÇÕES ===
+
+// Buscar notificações
+export const getNotifications = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/notifications');
+};
+
+// Marcar notificação como lida
+export const markNotificationAsRead = async (token: string, notificationId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put(`/notifications/${notificationId}/read`);
+};
+
+// Marcar todas as notificações como lidas
+export const markAllNotificationsAsRead = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put('/notifications/read-all');
+};
+
+// Deletar notificação
+export const deleteNotification = async (token: string, notificationId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.delete(`/notifications/${notificationId}`);
+};
+
+// Limpar todas as notificações
+export const clearAllNotifications = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.delete('/notifications');
+};
+
+// === FUNÇÕES PARA BASE DE CONHECIMENTO ===
+
+// Buscar todos os artigos
+export const getKnowledgeArticles = async (token: string) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get('/knowledge-base/articles');
+};
+
+// Buscar artigo por ID
+export const getKnowledgeArticle = async (token: string, articleId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.get(`/knowledge-base/articles/${articleId}`);
+};
+
+// Criar novo artigo
+export const createKnowledgeArticle = async (
+  token: string,
+  data: {
+    title: string;
+    content: string;
+    category: string;
+    tags: string[];
+    is_published: boolean;
+  }
+) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post('/knowledge-base/articles', data);
+};
+
+// Atualizar artigo
+export const updateKnowledgeArticle = async (
+  token: string,
+  articleId: number,
+  data: {
+    title: string;
+    content: string;
+    category: string;
+    tags: string[];
+    is_published: boolean;
+  }
+) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.put(`/knowledge-base/articles/${articleId}`, data);
+};
+
+// Deletar artigo
+export const deleteKnowledgeArticle = async (token: string, articleId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.delete(`/knowledge-base/articles/${articleId}`);
+};
+
+// Incrementar visualizações
+export const incrementArticleViews = async (token: string, articleId: number) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/knowledge-base/articles/${articleId}/view`);
+};
+
+// Enviar feedback (útil/não útil)
+export const submitArticleFeedback = async (
+  token: string,
+  articleId: number,
+  helpful: boolean
+) => {
+  const apiAuth = apiWithAuth(token);
+  return await apiAuth.post(`/knowledge-base/articles/${articleId}/feedback`, { helpful });
 };

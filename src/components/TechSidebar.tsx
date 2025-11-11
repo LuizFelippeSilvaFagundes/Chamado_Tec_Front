@@ -1,16 +1,13 @@
 import './TechSidebar.css'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import NotificationCenter from './NotificationCenter'
 
 type ActiveSection = 
   | 'ticket-management'
   | 'assigned-tickets'
-  | 'admin-assigned-tickets'
-  | 'equipment-history'
   | 'reports'
-  | 'sla-monitoring'
-  | 'approval'
-  | 'tech-approval'
+  | 'knowledge-base'
 
 interface TechSidebarProps {
   activeSection: ActiveSection
@@ -18,7 +15,7 @@ interface TechSidebarProps {
 }
 
 function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
-  const { isAdmin, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -31,25 +28,13 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
       id: 'ticket-management' as ActiveSection,
       label: 'Gerenciar Chamados',
       icon: '📋',
-      description: 'Fila de novos chamados - pegar da fila'
+      description: 'Chamados resolvidos por você'
     },
     {
       id: 'assigned-tickets' as ActiveSection,
       label: 'Meus Chamados',
       icon: '🎫',
-      description: 'Chamados que você pegou para resolver'
-    },
-    {
-      id: 'admin-assigned-tickets' as ActiveSection,
-      label: 'Chamados do Admin',
-      icon: '👑',
       description: 'Chamados atribuídos pelo administrador'
-    },
-    {
-      id: 'equipment-history' as ActiveSection,
-      label: 'Histórico Equipamentos',
-      icon: '🖥️',
-      description: 'Consultar histórico de equipamentos'
     },
     {
       id: 'reports' as ActiveSection,
@@ -58,24 +43,11 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
       description: 'Dashboards e relatórios'
     },
     {
-      id: 'sla-monitoring' as ActiveSection,
-      label: 'SLA & Produtividade',
-      icon: '⏱️',
-      description: 'Monitorar SLA e produtividade'
-    },
-    {
-      id: 'approval' as ActiveSection,
-      label: 'Aprovações',
-      icon: '✅',
-      description: 'Aprovar ou reatribuir chamados'
-    },
-    // Apenas para admins
-    ...(isAdmin ? [{
-      id: 'tech-approval' as ActiveSection,
-      label: 'Aprovar Técnicos',
-      icon: '👥',
-      description: 'Aprovar cadastros de técnicos'
-    }] : [])
+      id: 'knowledge-base' as ActiveSection,
+      label: 'Base de Conhecimento',
+      icon: '📚',
+      description: 'Encontre soluções para problemas comuns'
+    }
   ]
 
   return (
@@ -100,6 +72,10 @@ function TechSidebar({ activeSection, onSectionChange }: TechSidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0 1rem', justifyContent: 'center' }}>
+          <NotificationCenter />
+        </div>
+        
         <div className="tech-info">
           <div className="info-item">
             <span className="info-label">Status:</span>

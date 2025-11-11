@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateTime } from '../../utils/dateUtils'
-import { getAvailableTickets, takeTicket, updateTicketStatus } from '../../api/api'
+import { getResolvedTickets } from '../../api/api'
+import AttachmentViewer from '../AttachmentViewer'
 import './AssignedTickets.css'
 
 interface TicketDetail {
@@ -31,22 +32,20 @@ interface TicketHistory {
   technician_name: string
 }
 
-interface TicketManagementProps {
-  onTicketTaken?: () => void
-}
-
-function TicketManagement({ onTicketTaken }: TicketManagementProps) {
-  const { token, user } = useAuth()
+function TicketManagement() {
+  const { token } = useAuth()
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null)
   const [tickets, setTickets] = useState<TicketDetail[]>([])
   const [loading, setLoading] = useState(true)
-  const [takingTicket, setTakingTicket] = useState<number | null>(null)
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'resolved' | 'closed'>('all')
 
   useEffect(() => {
-    fetchTickets()
-  }, [])
+    if (token) {
+      fetchTickets()
+    }
+  }, [token])
   
   const statusConfig = {
     open: { label: 'Aberto', color: '#EF4444', icon: '❓' },
@@ -87,10 +86,12 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
         throw new Error('Token não encontrado')
       }
 
-      // Buscar apenas tickets disponíveis (não atribuídos) para a fila
-      const response = await getAvailableTickets(token)
-      const data = response.data
-      console.log('📋 Tickets na fila (não atribuídos):', data)
+      console.log('📋 Buscando chamados resolvidos pelo técnico...')
+      
+      // Buscar tickets resolvidos pelo técnico logado
+      const response = await getResolvedTickets(token)
+      const data = response.data || []
+      console.log('✅ Tickets resolvidos carregados:', data)
       
       // Converter os dados da API para o formato esperado pelo componente
       const formattedTickets: TicketDetail[] = data.map((ticket: any) => ({
@@ -99,7 +100,7 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
         description: ticket.description,
         priority: ticket.priority,
         status: ticket.status,
-        category: ticket.problem_type,
+        category: ticket.problem_type || ticket.category || 'Outros',
         created_at: ticket.created_at,
         user_name: ticket.user?.full_name || ticket.user?.username || 'Usuário',
         user_email: ticket.user?.email || 'usuario@empresa.com',
@@ -108,15 +109,7 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
         estimated_time: ticket.estimated_time || 30,
         assigned_technician_id: ticket.assigned_technician_id,
         user_id: ticket.user_id,
-        history: ticket.history || [
-          {
-            id: 1,
-            action: 'created',
-            description: 'Chamado criado pelo usuário',
-            timestamp: ticket.created_at,
-            technician_name: 'Sistema'
-          }
-        ],
+        history: ticket.history || [],
         attachments: ticket.attachments || []
       }))
       
@@ -124,53 +117,21 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
       if (formattedTickets.length > 0 && !selectedTicket) {
         setSelectedTicket(formattedTickets[0])
       }
-    } catch (error) {
-      console.error('Erro ao buscar chamados da fila:', error)
-      showNotification('error', 'Erro ao carregar fila de chamados')
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar chamados resolvidos:', error.response?.data || error.message)
+      showNotification('error', 'Erro ao carregar chamados resolvidos')
+      setTickets([])
     } finally {
       setLoading(false)
     }
   }
 
-  // Função para pegar um ticket da fila
-  const handleTakeTicket = async () => {
-    if (!selectedTicket) return
-
-    try {
-      setTakingTicket(selectedTicket.id)
-      
-      if (!token) {
-        throw new Error('Token não encontrado')
-      }
-
-      await takeTicket(token, selectedTicket.id)
-      
-      // Remover ticket da fila local
-      const updatedTickets = tickets.filter(ticket => ticket.id !== selectedTicket.id)
-      setTickets(updatedTickets)
-      
-      // Selecionar próximo ticket da fila
-      if (updatedTickets.length > 0) {
-        setSelectedTicket(updatedTickets[0])
-      } else {
-        setSelectedTicket(null)
-      }
-      
-      showNotification('success', '✅ Chamado atribuído! Redirecionando para "Meus Chamados"...')
-      
-      // Redirecionar para "Meus Chamados" após 1.5 segundos
-      setTimeout(() => {
-        if (onTicketTaken) {
-          onTicketTaken()
-        }
-      }, 1500)
-    } catch (error) {
-      console.error('Erro ao pegar ticket:', error)
-      showNotification('error', '❌ Erro ao pegar chamado. Tente novamente.')
-    } finally {
-      setTakingTicket(null)
-    }
-  }
+  const filteredTickets = tickets.filter(ticket => {
+    if (filter === 'all') return true
+    if (filter === 'resolved') return ticket.status === 'resolved'
+    if (filter === 'closed') return ticket.status === 'closed'
+    return true
+  })
 
   if (loading) {
     return (
@@ -191,15 +152,15 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
       )}
 
       <div className="section-header">
-        <h1>📥 Fila de Chamados</h1>
-        <p className="section-subtitle">Chamados disponíveis para você pegar</p>
+        <h1>📋 Gerenciar Chamados</h1>
+        <p className="section-subtitle">Chamados resolvidos por você</p>
       </div>
 
       {!loading && tickets.length === 0 && (
         <div className="empty-state">
-          <div className="empty-icon">📋</div>
-          <h3>Nenhum chamado na fila</h3>
-          <p>Todos os chamados foram atribuídos ou não há chamados abertos no momento.</p>
+          <div className="empty-icon">✅</div>
+          <h3>Nenhum chamado resolvido</h3>
+          <p>Você ainda não resolveu nenhum chamado.</p>
         </div>
       )}
 
@@ -208,15 +169,24 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
           {/* Filtros */}
           <div className="filters-section">
             <div className="filter-controls">
+              <select 
+                value={filter} 
+                onChange={(e) => setFilter(e.target.value as any)}
+                className="filter-select"
+              >
+                <option value="all">Todos</option>
+                <option value="resolved">Resolvidos</option>
+                <option value="closed">Fechados</option>
+              </select>
               <button className="action-btn primary" onClick={fetchTickets}>
-                🔄 Atualizar Fila
+                🔄 Atualizar
               </button>
             </div>
           </div>
 
           {/* Cards de Chamados */}
           <div className="tickets-grid">
-            {tickets.map(ticket => (
+            {filteredTickets.map(ticket => (
               <div 
                 key={ticket.id} 
                 className="ticket-card"
@@ -361,34 +331,42 @@ function TicketManagement({ onTicketTaken }: TicketManagementProps) {
                 </div>
               </div>
 
-              {/* Ações do Técnico */}
-              <div className="ticket-actions-modal">
-                <button 
-                  className="action-btn take-btn"
-                  onClick={handleTakeTicket}
-                  disabled={takingTicket === selectedTicket.id}
-                >
-                  {takingTicket === selectedTicket.id ? '⏳ Pegando...' : '🎯 Pegar Este Chamado'}
-                </button>
-              </div>
+              {/* Informações de Resolução */}
+              {selectedTicket.status === 'resolved' || selectedTicket.status === 'closed' ? (
+                <div className="ticket-resolved-info">
+                  <h4>✅ Chamado Resolvido</h4>
+                  <p>Este chamado foi resolvido por você.</p>
+                </div>
+              ) : null}
 
               {/* Anexos */}
               {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
-                <div className="ticket-attachments">
-                  <h4>📎 Anexos ({selectedTicket.attachments.length})</h4>
-                  <div className="attachments-list">
-                    {selectedTicket.attachments.map((attachment: any, index: number) => (
-                      <div key={index} className="attachment-item">
-                        <div className="attachment-icon">📄</div>
-                        <div className="attachment-info">
-                          <span className="attachment-name">
-                            {typeof attachment === 'string' ? attachment : attachment.filename || 'Arquivo anexo'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <AttachmentViewer
+                  attachments={selectedTicket.attachments.map((att: any) => {
+                    // Se attachment é uma string, criar objeto básico
+                    if (typeof att === 'string') {
+                      return {
+                        id: 0,
+                        filename: att,
+                        url: '',
+                        size: 0,
+                        type: '',
+                        created_at: ''
+                      }
+                    }
+                    // Se attachment é um objeto
+                    return {
+                      id: att.id,
+                      filename: att.filename || att.name || 'Arquivo',
+                      url: att.url || att.path,
+                      size: att.size || 0,
+                      type: att.type || att.mime_type || '',
+                      created_at: att.created_at
+                    }
+                  })}
+                  ticketId={selectedTicket.id}
+                  canDelete={false}
+                />
               )}
 
               {/* Histórico */}
