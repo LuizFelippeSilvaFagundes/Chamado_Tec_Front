@@ -4,6 +4,10 @@ import axios from "axios";
 // Se VITE_API_URL não estiver definida, usa a URL do Render
 const API_URL = import.meta.env.VITE_API_URL || "https://chamado-tec-back-1.onrender.com";
 
+// Log para debug (remover em produção)
+console.log('🔗 API URL configurada:', API_URL);
+console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+
 // API base sem autenticação
 export const api = axios.create({
   baseURL: API_URL,

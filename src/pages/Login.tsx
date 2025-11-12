@@ -29,9 +29,12 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      console.log('🔐 Tentativa de login:', { username, password })
+      const apiUrl = getApiUrl()
+      console.log('🔐 Tentativa de login:', { username })
+      console.log('🔗 URL da API:', apiUrl)
+      console.log('🔗 Endpoint completo:', `${apiUrl}/login`)
       
-      const res = await fetch(`${getApiUrl()}/login`, {
+      const res = await fetch(`${apiUrl}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
