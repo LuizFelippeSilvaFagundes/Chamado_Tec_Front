@@ -1,17 +1,23 @@
 import axios from "axios";
 
+// URL da API - usa variável de ambiente ou padrão para desenvolvimento
+const API_URL = import.meta.env.VITE_API_URL || "https://chamado-tec-back.onrender.com";
+
 // API base sem autenticação
 export const api = axios.create({
-  baseURL: "http://127.0.0.1:8000",
+  baseURL: API_URL,
 });
 
 // API com token de autenticação
 export const apiWithAuth = (token: string) => {
   return axios.create({
-    baseURL: "http://127.0.0.1:8000",
+    baseURL: API_URL,
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+// Função helper para obter a URL da API
+export const getApiUrl = () => API_URL;
 
 // Tipos de dados
 interface RegisterData {
@@ -185,7 +191,7 @@ export const getTicketAttachments = async (token: string, ticketId: number) => {
 
 export const downloadTicketAttachment = (ticketId: number, filename: string) => {
   // Download direto via URL
-  const url = `http://127.0.0.1:8000/tickets/${ticketId}/attachments/download/${filename}`;
+  const url = `${API_URL}/tickets/${ticketId}/attachments/download/${filename}`;
   window.open(url, '_blank');
 };
 
