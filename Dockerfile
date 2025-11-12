@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Build the app (VITE_API_URL será passado como ARG)
-ARG VITE_API_URL=https://chamado-tec-backend.onrender.com
+ARG VITE_API_URL=https://chamado-tec-back-1.onrender.com
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
