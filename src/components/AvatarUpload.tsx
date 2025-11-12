@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { uploadAvatar, deleteMyAvatar } from '../api/api';
+import { uploadAvatar, deleteMyAvatar, getApiUrl } from '../api/api';
 import { useAuth } from '../contexts/AuthContext';
 import './AvatarUpload.css';
 
@@ -22,7 +22,7 @@ function AvatarUpload({ onClose, onAvatarUpdate }: AvatarUploadProps) {
   });
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(
-    user?.avatar_url ? `http://127.0.0.1:8000${user.avatar_url}` : null
+    user?.avatar_url ? `${getApiUrl()}${user.avatar_url}` : null
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +143,7 @@ function AvatarUpload({ onClose, onAvatarUpdate }: AvatarUploadProps) {
       updateUser({ avatar_url: avatarUrl });
       
       // Atualizar estado local do componente
-      setCurrentAvatar(`http://127.0.0.1:8000${avatarUrl}`);
+      setCurrentAvatar(`${getApiUrl()}${avatarUrl}`);
 
       // Callback para atualizar componentes em tempo real
       if (onAvatarUpdate) {

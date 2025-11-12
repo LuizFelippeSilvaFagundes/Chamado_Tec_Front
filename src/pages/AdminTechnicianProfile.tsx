@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 import './AdminTechnicianProfile.css'
 
 export default function AdminTechnicianProfile() {
   const { id } = useParams()
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [technician, setTechnician] = useState<any>(null)
@@ -28,17 +33,22 @@ export default function AdminTechnicianProfile() {
       setTechnicianLoading(true)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setTechnicianLoading(false)
+        return
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/users/${id}`, {
+      const res = await fetch(`${getApiUrl()}/users/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao buscar técnico')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
       const data = await res.json()
@@ -53,19 +63,8 @@ export default function AdminTechnicianProfile() {
       })
     } catch (error) {
       console.error('Erro ao buscar técnico:', error)
-      // Fallback para dados mockados
-      setTechnician({
-        id: 1,
-        full_name: 'Carlos Silva',
-        email: 'carlos.silva@test.com',
-        availability: '08:00,09:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00'
-      })
-      setFormData({
-        full_name: 'Carlos Silva',
-        email: 'carlos.silva@test.com',
-        password: '',
-        availability: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
-      })
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar técnico: ${errorMessage}`)
     } finally {
       setTechnicianLoading(false)
     }
@@ -93,7 +92,18 @@ export default function AdminTechnicianProfile() {
       setLoading(true)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        showErrorToast('Token não disponível. Faça login novamente.')
+        return
+      }
+
+      if (!formData.full_name.trim()) {
+        showErrorToast('Nome completo é obrigatório.')
+        return
+      }
+
+      if (!formData.email.trim()) {
+        showErrorToast('E-mail é obrigatório.')
+        return
       }
 
       const updateData: any = {
@@ -104,10 +114,14 @@ export default function AdminTechnicianProfile() {
 
       // Se senha foi preenchida, incluir na atualização
       if (formData.password.trim()) {
+        if (formData.password.length < 6) {
+          showErrorToast('Senha deve ter pelo menos 6 caracteres.')
+          return
+        }
         updateData.password = formData.password
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/users/${id}`, {
+      const res = await fetch(`${getApiUrl()}/users/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -117,14 +131,17 @@ export default function AdminTechnicianProfile() {
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao atualizar técnico')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
-      alert('Técnico atualizado com sucesso!')
-      navigate('/admin-dashboard')
+      showSuccessToast('Técnico atualizado com sucesso!')
+      setTimeout(() => navigate('/admin-dashboard'), 1500)
     } catch (error) {
       console.error('Erro ao atualizar técnico:', error)
-      alert('Erro ao atualizar técnico')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao atualizar técnico: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -233,10 +250,7 @@ export default function AdminTechnicianProfile() {
 
           {/* Loading */}
           {technicianLoading ? (
-            <div className="loading-state">
-              <div className="loading-spinner"></div>
-              <p>Carregando perfil do técnico...</p>
-            </div>
+            <LoadingSpinner size="large" message="Carregando perfil do técnico..." fullScreen={false} />
           ) : technician ? (
             <div className="profile-form-container">
               {/* Dados Pessoais */}

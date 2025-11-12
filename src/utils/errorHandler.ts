@@ -20,7 +20,7 @@ export const handleApiError = (error: unknown): string => {
         errorMsg.includes('connection_refused') ||
         errorMsg.includes('err_connection_refused') ||
         errorMsg.includes('network error')) {
-      return 'Servidor não está respondendo. Verifique se o backend está rodando na porta 8000.'
+      return 'Servidor não está respondendo. Verifique sua conexão com a internet.'
     }
     
     // Outros erros de rede
@@ -111,7 +111,7 @@ export const handleApiError = (error: unknown): string => {
   if (error instanceof TypeError) {
     const errorMsg = error.message.toLowerCase()
     if (errorMsg.includes('failed to fetch') || errorMsg.includes('network')) {
-      return 'Servidor não está respondendo. Verifique se o backend está rodando na porta 8000.'
+      return 'Servidor não está respondendo. Verifique sua conexão com a internet.'
     }
   }
 

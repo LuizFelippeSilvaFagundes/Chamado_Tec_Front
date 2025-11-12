@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getApprovalTickets, approveTicketRequest, rejectTicketRequest, reassignTicket as reassignTicketAPI, getTecnicosTodos } from '../../api/api'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
+import { getApprovalTickets, approveTicketRequest, rejectTicketRequest, reassignTicket as reassignTicketAPI, getApiUrl } from '../../api/api'
+import LoadingSpinner from '../LoadingSpinner'
 
 interface ApprovalTicket {
   id: number
@@ -31,9 +34,11 @@ interface Technician {
 
 function ApprovalSystem() {
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [approvalTickets, setApprovalTickets] = useState<ApprovalTicket[]>([])
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'pending_approval' | 'pending_reassignment' | 'approved'>('all')
   const [selectedTicket, setSelectedTicket] = useState<ApprovalTicket | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
@@ -50,9 +55,13 @@ function ApprovalSystem() {
   const fetchApprovalData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        console.error('❌ Token não disponível')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
         return
       }
 
@@ -84,10 +93,16 @@ function ApprovalSystem() {
         console.log('✅ Tickets de aprovação carregados:', approvalTicketsData)
       } catch (error: any) {
         console.error('❌ Erro ao buscar tickets de aprovação:', error.response?.data || error.message)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao carregar solicitações: ${errorMessage}`)
+        setError(errorMessage)
         setApprovalTickets([])
       }
     } catch (error) {
       console.error('❌ Erro geral ao buscar dados de aprovação:', error)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar dados: ${errorMessage}`)
+      setError(errorMessage)
       setApprovalTickets([])
     } finally {
       setLoading(false)
@@ -102,14 +117,15 @@ function ApprovalSystem() {
       
       try {
         // Buscar técnicos usando endpoint com autenticação
-        const response = await fetch('http://127.0.0.1:8000/tech/todos', {
+        const response = await fetch(`${getApiUrl()}/tech/todos`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         })
         
         if (!response.ok) {
-          throw new Error('Erro ao buscar técnicos')
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || 'Erro ao buscar técnicos')
         }
         
         const data = await response.json()
@@ -129,10 +145,14 @@ function ApprovalSystem() {
         console.log('✅ Técnicos carregados:', techniciansData)
       } catch (error: any) {
         console.error('❌ Erro ao buscar técnicos:', error.response?.data || error.message)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao carregar técnicos: ${errorMessage}`)
         setTechnicians([])
       }
     } catch (error) {
       console.error('❌ Erro geral ao buscar técnicos:', error)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar técnicos: ${errorMessage}`)
       setTechnicians([])
     }
   }
@@ -145,13 +165,13 @@ function ApprovalSystem() {
   const approveTicket = async (ticketId: number, approved: boolean) => {
     try {
       if (!token) {
-        alert('Token não disponível')
+        showErrorToast('Token não disponível. Faça login novamente.')
         return
       }
 
       const reason = approved ? approvalReason : rejectionReason
       if (!reason.trim()) {
-        alert('Por favor, informe o motivo da decisão')
+        showErrorToast('Por favor, informe o motivo da decisão.')
         return
       }
 
@@ -175,36 +195,38 @@ function ApprovalSystem() {
       setApprovalReason('')
       setRejectionReason('')
       setSelectedTicket(null)
-        alert(`✅ Ticket ${approved ? 'aprovado' : 'rejeitado'} com sucesso!`)
+        showSuccessToast(`Ticket ${approved ? 'aprovado' : 'rejeitado'} com sucesso!`)
         
         // Recarregar dados
         fetchApprovalData()
       } catch (error: any) {
         console.error(`❌ Erro ao ${approved ? 'aprovar' : 'rejeitar'} ticket:`, error.response?.data || error.message)
-        alert(`Erro ao ${approved ? 'aprovar' : 'rejeitar'} ticket: ${error.response?.data?.detail || error.message}`)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao ${approved ? 'aprovar' : 'rejeitar'} ticket: ${errorMessage}`)
       }
     } catch (error) {
       console.error('❌ Erro ao processar aprovação:', error)
-      alert('Erro ao processar aprovação')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao processar aprovação: ${errorMessage}`)
     }
   }
 
   const reassignTicket = async (ticketId: number) => {
     try {
       if (!token) {
-        alert('Token não disponível')
+        showErrorToast('Token não disponível. Faça login novamente.')
         return
       }
 
       if (!newTechnician) {
-        alert('Por favor, selecione um técnico')
+        showErrorToast('Por favor, selecione um técnico.')
         return
       }
 
       // Encontrar o ID do técnico selecionado
       const selectedTech = technicians.find(tech => tech.name === newTechnician)
       if (!selectedTech) {
-        alert('Técnico não encontrado')
+        showErrorToast('Técnico não encontrado.')
         return
       }
 
@@ -223,17 +245,19 @@ function ApprovalSystem() {
 
       setNewTechnician('')
       setSelectedTicket(null)
-        alert('✅ Ticket reatribuído com sucesso!')
+        showSuccessToast('Ticket reatribuído com sucesso!')
         
         // Recarregar dados
         fetchApprovalData()
       } catch (error: any) {
         console.error('❌ Erro ao reatribuir ticket:', error.response?.data || error.message)
-        alert(`Erro ao reatribuir ticket: ${error.response?.data?.detail || error.message}`)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao reatribuir ticket: ${errorMessage}`)
       }
     } catch (error) {
       console.error('❌ Erro ao reatribuir ticket:', error)
-      alert('Erro ao reatribuir ticket')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao reatribuir ticket: ${errorMessage}`)
     }
   }
 
@@ -278,12 +302,7 @@ function ApprovalSystem() {
   }
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando sistema de aprovação...</p>
-      </div>
-    )
+    return <LoadingSpinner size="large" message="Carregando sistema de aprovação..." fullScreen={false} />
   }
 
   return (
@@ -301,11 +320,42 @@ function ApprovalSystem() {
             <option value="pending_reassignment">Aguardando Reatribuição</option>
             <option value="approved">Aprovados</option>
           </select>
-          <button className="action-btn primary" onClick={fetchApprovalData}>
+          <button 
+            className="action-btn primary" 
+            onClick={fetchApprovalData}
+            disabled={loading}
+          >
             🔄 Atualizar
           </button>
         </div>
       </div>
+
+      {error && !loading && (
+        <div className="error-message" style={{ 
+          padding: '1rem', 
+          backgroundColor: '#fee2e2', 
+          border: '1px solid #ef4444', 
+          borderRadius: '6px',
+          color: '#991b1b',
+          marginBottom: '1rem'
+        }}>
+          ❌ {error}
+          <button 
+            onClick={fetchApprovalData}
+            style={{
+              marginLeft: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Tentar Novamente
+          </button>
+        </div>
+      )}
 
       <div className="approval-layout">
         {/* Lista de tickets */}

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import AvatarUpload from '../components/AvatarUpload'
 import AdminSLAMonitoring from '../components/admin/AdminSLAMonitoring'
 import './AdminDashboard.css'
-import { getTicketHistory, getTicketComments, updateTicket } from '../api/api'
+import { getTicketHistory, getTicketComments, updateTicket, getApiUrl } from '../api/api'
 import EditTicketModal from '../components/admin/EditTicketModal'
 import NotificationCenter from '../components/NotificationCenter'
 import KnowledgeBase from '../components/KnowledgeBase'
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
             <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
               {userAvatarUrl ? (
                 <img 
-                  src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                  src={`${getApiUrl()}${userAvatarUrl}`}
                   alt="Avatar"
                   className="user-avatar"
                   style={{
@@ -246,7 +246,7 @@ function ChamadosList() {
       }
 
       // Buscar apenas chamados que já foram atribuídos a técnicos
-      const res = await fetch('http://127.0.0.1:8000/admin/tickets/assigned', {
+      const res = await fetch(`${getApiUrl()}/admin/tickets/assigned`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -536,7 +536,7 @@ function TecnicosList() {
         throw new Error('Token não encontrado')
       }
 
-      const res = await fetch('http://127.0.0.1:8000/tech/todos', {
+      const res = await fetch(`${getApiUrl()}/tech/todos`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -583,7 +583,7 @@ function TecnicosList() {
         throw new Error('Token não encontrado')
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/admin/technicians/${technicianId}/approve`, {
+      const res = await fetch(`${getApiUrl()}/admin/technicians/${technicianId}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -820,7 +820,7 @@ function ChamadosAbertosList() {
         throw new Error('Token não encontrado')
       }
 
-      const response = await fetch('http://127.0.0.1:8000/admin/tickets?status=open', {
+      const response = await fetch(`${getApiUrl()}/admin/tickets?status=open`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -893,7 +893,7 @@ function ChamadosAbertosList() {
         throw new Error('Token não encontrado')
       }
 
-      const response = await fetch('http://127.0.0.1:8000/tech/todos', {
+      const response = await fetch(`${getApiUrl()}/tech/todos`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -944,7 +944,7 @@ function ChamadosAbertosList() {
     console.log(`🔄 ${actionText} chamado:`, selectedTicket.id, 'para técnico:', technicianId)
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/admin/tickets/${selectedTicket.id}/assign`, {
+      const response = await fetch(`${getApiUrl()}/admin/tickets/${selectedTicket.id}/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1610,7 +1610,7 @@ function ClientesList() {
   const fetchServidores = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://127.0.0.1:8000/servidores/todos')
+      const response = await fetch(`${getApiUrl()}/servidores/todos`)
       
       if (response.ok) {
         const data = await response.json()

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
 import { getResolvedTickets, getAdminAssignedTickets, getAssignedTickets } from '../../api/api'
+import LoadingSpinner from '../LoadingSpinner'
 
 interface ReportData {
   period: string
@@ -17,9 +20,11 @@ interface ReportData {
 
 function TechReports() {
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('30')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (token) {
@@ -55,10 +60,14 @@ function TechReports() {
   const fetchReportData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        console.error('❌ Token não disponível')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
         setReportData(null)
+        setLoading(false)
         return
       }
 
@@ -219,7 +228,6 @@ function TechReports() {
         
       } catch (error: any) {
         console.error('❌ Erro ao buscar tickets:', error.response?.data || error.message)
-        console.error('❌ Stack trace:', error.stack)
         
         // Tentar apenas com tickets atribuídos (que inclui resolvidos)
         try {
@@ -250,6 +258,7 @@ function TechReports() {
               monthlyTrend: []
             }
             setReportData(reportData)
+            showErrorToast('Nenhum ticket resolvido encontrado no período selecionado.')
             return
           }
           
@@ -289,13 +298,18 @@ function TechReports() {
           setReportData(reportData)
         } catch (fallbackError: any) {
           console.error('❌ Erro ao buscar tickets resolvidos:', fallbackError.response?.data || fallbackError.message)
-          console.error('❌ Stack trace:', fallbackError.stack)
+          const errorMessage = handleApiError(fallbackError)
+          showErrorToast(`Erro ao carregar relatórios: ${errorMessage}`)
+          setError(errorMessage)
           setReportData(null)
         }
       }
       
     } catch (error: any) {
       console.error('❌ Erro geral ao buscar dados de relatórios:', error.response?.data || error.message)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar relatórios: ${errorMessage}`)
+      setError(errorMessage)
       setReportData(null)
     } finally {
       setLoading(false)
@@ -303,18 +317,29 @@ function TechReports() {
   }
 
   const exportReport = () => {
-    if (!reportData) return
+    if (!reportData) {
+      showErrorToast('Não há dados para exportar.')
+      return
+    }
     
-    const csvContent = generateCSV(reportData)
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `relatorio_tecnico_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    try {
+      const csvContent = generateCSV(reportData)
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `relatorio_tecnico_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      showSuccessToast('Relatório exportado com sucesso!')
+    } catch (error) {
+      console.error('❌ Erro ao exportar relatório:', error)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao exportar relatório: ${errorMessage}`)
+    }
   }
 
   const generateCSV = (data: ReportData) => {
@@ -344,32 +369,63 @@ function TechReports() {
   }
 
   if (loading) {
+    return <LoadingSpinner size="large" message="Carregando relatórios..." fullScreen={false} />
+  }
+
+  if (!reportData && error) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Gerando relatórios...</p>
+      <div className="error-state" style={{ 
+        padding: '2rem', 
+        textAlign: 'center', 
+        maxWidth: '600px', 
+        margin: '2rem auto' 
+      }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>❌ Erro ao carregar relatórios</h3>
+        <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{error}</p>
+        <button 
+          onClick={fetchReportData}
+          style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem 1.5rem', 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '6px', 
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500'
+          }}
+        >
+          🔄 Tentar Novamente
+        </button>
       </div>
     )
   }
 
   if (!reportData) {
     return (
-      <div className="error-state">
-        <h3>Erro ao carregar relatórios</h3>
-        <p>Não foi possível carregar os dados do relatório.</p>
-        <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '1rem' }}>
-          Verifique o console do navegador para mais detalhes sobre o erro.
+      <div className="error-state" style={{ 
+        padding: '2rem', 
+        textAlign: 'center', 
+        maxWidth: '600px', 
+        margin: '2rem auto' 
+      }}>
+        <h3 style={{ color: '#6b7280', marginBottom: '1rem' }}>Nenhum dado disponível</h3>
+        <p style={{ color: '#9ca3af', marginBottom: '1rem' }}>
+          Não foi possível carregar os dados do relatório.
         </p>
         <button 
           onClick={fetchReportData}
           style={{ 
             marginTop: '1rem', 
-            padding: '0.5rem 1rem', 
+            padding: '0.75rem 1.5rem', 
             backgroundColor: '#3b82f6', 
             color: 'white', 
             border: 'none', 
-            borderRadius: '4px', 
-            cursor: 'pointer' 
+            borderRadius: '6px', 
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500'
           }}
         >
           🔄 Tentar Novamente
@@ -393,10 +449,18 @@ function TechReports() {
             <option value="90">Últimos 90 dias</option>
             <option value="365">Último ano</option>
           </select>
-          <button className="action-btn primary" onClick={fetchReportData}>
+          <button 
+            className="action-btn primary" 
+            onClick={fetchReportData}
+            disabled={loading}
+          >
             🔄 Atualizar
           </button>
-          <button className="action-btn success" onClick={exportReport}>
+          <button 
+            className="action-btn success" 
+            onClick={exportReport}
+            disabled={!reportData}
+          >
             📥 Exportar CSV
           </button>
         </div>

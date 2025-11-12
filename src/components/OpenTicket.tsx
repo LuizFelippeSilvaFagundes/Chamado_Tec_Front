@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
-import { uploadTicketAttachments } from '../api/api'
+import { uploadTicketAttachments, getApiUrl } from '../api/api'
 import FileUpload, { type UploadedFile } from './FileUpload'
 import { useToast } from '../contexts/ToastContext'
 import { handleApiError } from '../utils/errorHandler'
@@ -155,7 +155,7 @@ function OpenTicket({ onTicketCreated }: OpenTicketProps) {
         username: JSON.parse(localStorage.getItem('user') || '{}').username
       }
 
-      const res = await fetch('http://127.0.0.1:8000/tickets', {
+      const res = await fetch(`${getApiUrl()}/tickets`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

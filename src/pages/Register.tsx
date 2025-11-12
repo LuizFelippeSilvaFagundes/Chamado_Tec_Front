@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
 import '../components/Login.css'
 
 export default function Register() {
   const navigate = useNavigate()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const validatePassword = (password: string) => {
@@ -24,51 +26,48 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMessage('')
     
     if (!username.trim()) {
-      setErrorMessage('Informe seu nome de usuário.')
+      showErrorToast('Informe seu nome de usuário.')
       return
     }
     if (username.trim().length < 3) {
-      setErrorMessage('Nome de usuário deve ter pelo menos 3 caracteres.')
+      showErrorToast('Nome de usuário deve ter pelo menos 3 caracteres.')
       return
     }
     if (!phone.trim()) {
-      setErrorMessage('Informe seu telefone.')
+      showErrorToast('Informe seu telefone.')
       return
     }
     if (!fullName.trim()) {
-      setErrorMessage('Informe seu nome completo.')
+      showErrorToast('Informe seu nome completo.')
       return
     }
     if (!validatePhone(phone)) {
-      setErrorMessage('Informe um telefone válido (mín. 8 dígitos).')
+      showErrorToast('Informe um telefone válido (mín. 8 dígitos).')
       return
     }
     if (!password.trim()) {
-      setErrorMessage('Informe sua senha.')
+      showErrorToast('Informe sua senha.')
       return
     }
     if (!validatePassword(password)) {
-      setErrorMessage('Senha deve ter pelo menos 6 caracteres.')
+      showErrorToast('Senha deve ter pelo menos 6 caracteres.')
       return
     }
     if (password !== confirmPassword) {
-      setErrorMessage('As senhas não coincidem.')
+      showErrorToast('As senhas não coincidem.')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const res = await fetch('http://localhost:8000/register', {
+      const res = await fetch(`${getApiUrl()}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // Backend atual espera username/email; aqui derivamos username do telefone
-        // e enviamos um email placeholder baseado no telefone.
         body: JSON.stringify({
           username: username.trim(),
           full_name: fullName,
@@ -78,21 +77,17 @@ export default function Register() {
       })
 
       if (!res.ok) {
-        let msg = 'Erro ao registrar usuário'
-        try {
-          const data = await res.json()
-          if (typeof data?.detail === 'string') msg = data.detail
-          else if (Array.isArray(data?.detail)) msg = data.detail.map((d: any) => d?.msg || d?.detail || JSON.stringify(d)).join(' | ')
-          else if (data) msg = JSON.stringify(data)
-        } catch {}
-        throw new Error(msg)
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
-      setSuccessMessage('Usuário registrado com sucesso! Redirecionando para login...')
+      showSuccessToast('Usuário registrado com sucesso! Redirecionando para login...')
       setTimeout(() => navigate('/login'), 2000)
     } catch (error) {
       console.error('Erro no registro:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Erro ao registrar usuário')
+      const errorMessage = handleApiError(error)
+      showErrorToast(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -163,26 +158,6 @@ export default function Register() {
             />
           </label>
 
-          {errorMessage && (
-            <div className="error-message">
-              ❌ {errorMessage}
-            </div>
-          )}
-          
-          {successMessage && (
-            <div style={{
-              background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-              color: 'white',
-              textAlign: 'center',
-              marginTop: '1rem',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              fontWeight: '600',
-              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
-            }}>
-              ✅ {successMessage}
-            </div>
-          )}
 
           <button 
             type="submit" 

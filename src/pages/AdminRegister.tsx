@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
 import './AdminRegister.css'
 
 export default function AdminRegister() {
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -11,7 +15,6 @@ export default function AdminRegister() {
     full_name: ''
   })
   const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
   const navigate = useNavigate()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,27 +27,27 @@ export default function AdminRegister() {
 
   const validateForm = () => {
     if (!formData.username.trim()) {
-      setErrorMessage('Nome de usuário é obrigatório')
+      showErrorToast('Nome de usuário é obrigatório')
       return false
     }
     if (!formData.email.trim()) {
-      setErrorMessage('E-mail é obrigatório')
+      showErrorToast('E-mail é obrigatório')
       return false
     }
     if (!formData.password.trim()) {
-      setErrorMessage('Senha é obrigatória')
+      showErrorToast('Senha é obrigatória')
       return false
     }
     if (formData.password.length < 6) {
-      setErrorMessage('Senha deve ter pelo menos 6 caracteres')
+      showErrorToast('Senha deve ter pelo menos 6 caracteres')
       return false
     }
     if (formData.password !== formData.confirmPassword) {
-      setErrorMessage('Senhas não coincidem')
+      showErrorToast('Senhas não coincidem')
       return false
     }
     if (!formData.full_name.trim()) {
-      setErrorMessage('Nome completo é obrigatório')
+      showErrorToast('Nome completo é obrigatório')
       return false
     }
     return true
@@ -57,7 +60,6 @@ export default function AdminRegister() {
 
     try {
       setLoading(true)
-      setErrorMessage('')
 
       const adminData = {
         username: formData.username,
@@ -68,7 +70,7 @@ export default function AdminRegister() {
 
       console.log('Dados do administrador:', adminData)
 
-      const res = await fetch('http://127.0.0.1:8000/admin-register', {
+      const res = await fetch(`${getApiUrl()}/admin-register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,15 +79,17 @@ export default function AdminRegister() {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Erro ao cadastrar administrador')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
-      alert('Cadastro de administrador realizado com sucesso! Você já pode fazer login.')
-      navigate('/login')
+      showSuccessToast('Cadastro de administrador realizado com sucesso! Você já pode fazer login.')
+      setTimeout(() => navigate('/login'), 2000)
     } catch (error) {
       console.error('Erro no cadastro:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Erro ao realizar cadastro')
+      const errorMessage = handleApiError(error)
+      showErrorToast(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -175,11 +179,6 @@ export default function AdminRegister() {
           </div>
 
 
-          {errorMessage && (
-            <div className="error-message">
-              ❌ {errorMessage}
-            </div>
-          )}
 
           <button type="submit" className="register-btn" disabled={loading}>
             {loading ? 'Cadastrando...' : 'Cadastrar Administrador'}

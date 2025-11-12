@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
 import { formatDateTime } from '../../utils/dateUtils'
 import { getResolvedTickets } from '../../api/api'
 import AttachmentViewer from '../AttachmentViewer'
+import LoadingSpinner from '../LoadingSpinner'
 import './AssignedTickets.css'
 
 interface TicketDetail {
@@ -34,10 +37,11 @@ interface TicketHistory {
 
 function TicketManagement() {
   const { token } = useAuth()
+  const { showError: showErrorToast } = useToast()
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null)
   const [tickets, setTickets] = useState<TicketDetail[]>([])
   const [loading, setLoading] = useState(true)
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [filter, setFilter] = useState<'all' | 'resolved' | 'closed'>('all')
 
@@ -72,18 +76,17 @@ function TicketManagement() {
     setSelectedTicket(null)
   }
 
-  // Função para exibir notificação
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({type, message})
-    setTimeout(() => setNotification(null), 3000)
-  }
-
   const fetchTickets = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
+        return
       }
 
       console.log('📋 Buscando chamados resolvidos pelo técnico...')
@@ -119,7 +122,9 @@ function TicketManagement() {
       }
     } catch (error: any) {
       console.error('❌ Erro ao buscar chamados resolvidos:', error.response?.data || error.message)
-      showNotification('error', 'Erro ao carregar chamados resolvidos')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar chamados: ${errorMessage}`)
+      setError(errorMessage)
       setTickets([])
     } finally {
       setLoading(false)
@@ -134,29 +139,44 @@ function TicketManagement() {
   })
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando gerenciamento de chamados...</p>
-      </div>
-    )
+    return <LoadingSpinner size="large" message="Carregando gerenciamento de chamados..." fullScreen={false} />
   }
 
   return (
     <div className="assigned-tickets">
-      {/* Notificação */}
-      {notification && (
-        <div className={`notification ${notification.type}`}>
-          {notification.message}
-        </div>
-      )}
-
       <div className="section-header">
         <h1>📋 Gerenciar Chamados</h1>
         <p className="section-subtitle">Chamados resolvidos por você</p>
       </div>
 
-      {!loading && tickets.length === 0 && (
+      {error && !loading && (
+        <div className="error-message" style={{ 
+          padding: '1rem', 
+          backgroundColor: '#fee2e2', 
+          border: '1px solid #ef4444', 
+          borderRadius: '6px',
+          color: '#991b1b',
+          marginBottom: '1rem'
+        }}>
+          ❌ {error}
+          <button 
+            onClick={fetchTickets}
+            style={{
+              marginLeft: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Tentar Novamente
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && tickets.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">✅</div>
           <h3>Nenhum chamado resolvido</h3>
@@ -178,7 +198,11 @@ function TicketManagement() {
                 <option value="resolved">Resolvidos</option>
                 <option value="closed">Fechados</option>
               </select>
-              <button className="action-btn primary" onClick={fetchTickets}>
+              <button 
+                className="action-btn primary" 
+                onClick={fetchTickets}
+                disabled={loading}
+              >
                 🔄 Atualizar
               </button>
             </div>
@@ -393,5 +417,6 @@ function TicketManagement() {
     </div>
   )
 }
+
 
 export default TicketManagement

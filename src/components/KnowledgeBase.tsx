@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
 import { apiWithAuth } from '../api/api'
 import { formatDateTime } from '../utils/dateUtils'
 import './KnowledgeBase.css'
@@ -26,6 +28,7 @@ interface KnowledgeBaseProps {
 
 function KnowledgeBase({ canEdit = false }: KnowledgeBaseProps) {
   const { token, user } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [articles, setArticles] = useState<KnowledgeArticle[]>([])
   const [filteredArticles, setFilteredArticles] = useState<KnowledgeArticle[]>([])
   const [loading, setLoading] = useState(true)
@@ -409,40 +412,46 @@ function KnowledgeBase({ canEdit = false }: KnowledgeBaseProps) {
               await fetchArticles()
               setShowCreateModal(false)
               setEditingArticle(null)
-              alert(editingArticle ? '✅ Artigo atualizado com sucesso!' : '✅ Artigo criado com sucesso!')
+              showSuccessToast(editingArticle ? 'Artigo atualizado com sucesso!' : 'Artigo criado com sucesso!')
             } catch (error: any) {
-              // Se a API não existir, salvar localmente
-              const storedArticles = localStorage.getItem('knowledge-base-articles')
-              const currentArticles: KnowledgeArticle[] = storedArticles ? JSON.parse(storedArticles) : []
-              
-              if (editingArticle) {
-                const updated = currentArticles.map(a =>
-                  a.id === editingArticle.id
-                    ? { ...a, ...articleData, updated_at: new Date().toISOString() }
-                    : a
-                )
-                localStorage.setItem('knowledge-base-articles', JSON.stringify(updated))
-              } else {
-                const newArticle: KnowledgeArticle = {
-                  id: Date.now(),
-                  ...articleData,
-                  author: user?.full_name || 'Administrador',
-                  author_id: user?.id || 1,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                  views: 0,
-                  helpful_count: 0,
-                  not_helpful_count: 0,
-                  is_published: true
+              try {
+                // Se a API não existir, salvar localmente
+                const storedArticles = localStorage.getItem('knowledge-base-articles')
+                const currentArticles: KnowledgeArticle[] = storedArticles ? JSON.parse(storedArticles) : []
+                
+                if (editingArticle) {
+                  const updated = currentArticles.map(a =>
+                    a.id === editingArticle.id
+                      ? { ...a, ...articleData, updated_at: new Date().toISOString() }
+                      : a
+                  )
+                  localStorage.setItem('knowledge-base-articles', JSON.stringify(updated))
+                } else {
+                  const newArticle: KnowledgeArticle = {
+                    id: Date.now(),
+                    ...articleData,
+                    author: user?.full_name || 'Administrador',
+                    author_id: user?.id || 1,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    views: 0,
+                    helpful_count: 0,
+                    not_helpful_count: 0,
+                    is_published: true
+                  }
+                  currentArticles.unshift(newArticle)
+                  localStorage.setItem('knowledge-base-articles', JSON.stringify(currentArticles))
                 }
-                currentArticles.unshift(newArticle)
-                localStorage.setItem('knowledge-base-articles', JSON.stringify(currentArticles))
+                
+                await fetchArticles()
+                setShowCreateModal(false)
+                setEditingArticle(null)
+                showSuccessToast(editingArticle ? 'Artigo atualizado com sucesso!' : 'Artigo criado com sucesso!')
+              } catch (localError) {
+                console.error('Erro ao salvar artigo:', localError)
+                const errorMessage = handleApiError(error)
+                showErrorToast(`Erro ao salvar artigo: ${errorMessage}`)
               }
-              
-              await fetchArticles()
-              setShowCreateModal(false)
-              setEditingArticle(null)
-              alert(editingArticle ? '✅ Artigo atualizado com sucesso!' : '✅ Artigo criado com sucesso!')
             }
           }}
         />

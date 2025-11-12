@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 import './AdminTicketDetail.css'
 
 export default function AdminTicketDetail() {
   const { id } = useParams()
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [selectedTechnician, setSelectedTechnician] = useState('')
@@ -23,17 +28,22 @@ export default function AdminTicketDetail() {
       setTicketLoading(true)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setTicketLoading(false)
+        return
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/tickets/${id}`, {
+      const res = await fetch(`${getApiUrl()}/tickets/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao buscar chamado')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
       const data = await res.json()
@@ -60,26 +70,8 @@ export default function AdminTicketDetail() {
       })
     } catch (error) {
       console.error('Erro ao buscar chamado:', error)
-      // Fallback para dados mockados
-      setTicket({
-        id: '00004',
-        titulo: 'Backup não está funcionando',
-        descricao: 'O sistema de backup automático parou de funcionar. Última execução bem-sucedida foi há uma semana.',
-        categoria: 'Recuperação de Dados',
-        status: 'Aberto',
-        criado_em: '12/04/25 09:12',
-        atualizado_em: '12/04/25 15:20',
-        cliente: {
-          nome: 'André Costa',
-          avatar: 'AC',
-          email: 'andre.costa@empresa.com'
-        },
-        tecnico_responsavel: {
-          nome: 'Carlos Silva',
-          avatar: 'CS',
-          email: 'carlos.silva@test.com'
-        }
-      })
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar chamado: ${errorMessage}`)
     } finally {
       setTicketLoading(false)
     }
@@ -123,10 +115,11 @@ export default function AdminTicketDetail() {
       setLoading(true)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        showErrorToast('Token não disponível. Faça login novamente.')
+        return
       }
 
-      const res = await fetch(`http://127.0.0.1:8000/tickets/${id}/status`, {
+      const res = await fetch(`${getApiUrl()}/tickets/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -139,14 +132,18 @@ export default function AdminTicketDetail() {
       })
 
       if (!res.ok) {
-        throw new Error('Erro ao atualizar status do chamado')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
-      alert(`Chamado ${newStatus === 'in-progress' ? 'enviado para atendimento' : 'encerrado'} com sucesso!`)
-      navigate('/admin-dashboard')
+      const statusLabel = newStatus === 'in-progress' ? 'enviado para atendimento' : 'encerrado'
+      showSuccessToast(`Chamado ${statusLabel} com sucesso!`)
+      setTimeout(() => navigate('/admin-dashboard'), 1500)
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
-      alert('Erro ao atualizar status do chamado')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao atualizar status: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -263,10 +260,7 @@ export default function AdminTicketDetail() {
 
           {/* Loading */}
           {ticketLoading ? (
-            <div className="loading-state">
-              <div className="loading-spinner"></div>
-              <p>Carregando chamado...</p>
-            </div>
+            <LoadingSpinner size="large" message="Carregando chamado..." fullScreen={false} />
           ) : ticket ? (
             <>
               {/* Seleção de Técnico */}

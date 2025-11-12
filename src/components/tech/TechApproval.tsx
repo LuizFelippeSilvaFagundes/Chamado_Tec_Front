@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
 import { getPendingTechnicians, approveTechnician as approveTechnicianAPI, rejectTechnician as rejectTechnicianAPI } from '../../api/api'
+import LoadingSpinner from '../LoadingSpinner'
 
 interface PendingTech {
   id: number
@@ -22,8 +25,10 @@ interface PendingTech {
 
 function TechApproval() {
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [pendingTechs, setPendingTechs] = useState<PendingTech[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedTech, setSelectedTech] = useState<PendingTech | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
   const [rejectionReason, setRejectionReason] = useState('')
@@ -37,9 +42,13 @@ function TechApproval() {
   const fetchPendingTechnicians = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        console.error('❌ Token não disponível')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
         return
       }
 
@@ -71,10 +80,16 @@ function TechApproval() {
         console.log('✅ Técnicos pendentes carregados:', pendingTechsData)
       } catch (error: any) {
         console.error('❌ Erro ao buscar técnicos pendentes:', error.response?.data || error.message)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao carregar técnicos: ${errorMessage}`)
+        setError(errorMessage)
         setPendingTechs([])
       }
     } catch (error) {
       console.error('❌ Erro geral ao buscar técnicos pendentes:', error)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar técnicos: ${errorMessage}`)
+      setError(errorMessage)
       setPendingTechs([])
     } finally {
       setLoading(false)
@@ -84,12 +99,12 @@ function TechApproval() {
   const approveTechnician = async (techId: number) => {
     try {
       if (!token) {
-        alert('Token não disponível')
+        showErrorToast('Token não disponível. Faça login novamente.')
         return
       }
 
       if (!approvalReason.trim()) {
-        alert('Por favor, informe o motivo da aprovação')
+        showErrorToast('Por favor, informe o motivo da aprovação.')
         return
       }
 
@@ -106,29 +121,31 @@ function TechApproval() {
 
         setApprovalReason('')
         setSelectedTech(null)
-        alert('✅ Técnico aprovado com sucesso!')
+        showSuccessToast('Técnico aprovado com sucesso!')
         
         // Recarregar dados
         fetchPendingTechnicians()
       } catch (error: any) {
         console.error('❌ Erro ao aprovar técnico:', error.response?.data || error.message)
-        alert(`Erro ao aprovar técnico: ${error.response?.data?.detail || error.message}`)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao aprovar técnico: ${errorMessage}`)
       }
     } catch (error) {
       console.error('❌ Erro ao aprovar técnico:', error)
-      alert('Erro ao aprovar técnico')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao aprovar técnico: ${errorMessage}`)
     }
   }
 
   const rejectTechnician = async (techId: number) => {
     try {
       if (!token) {
-        alert('Token não disponível')
+        showErrorToast('Token não disponível. Faça login novamente.')
         return
       }
 
       if (!rejectionReason.trim()) {
-        alert('Por favor, informe o motivo da rejeição')
+        showErrorToast('Por favor, informe o motivo da rejeição.')
         return
       }
 
@@ -145,17 +162,19 @@ function TechApproval() {
 
         setRejectionReason('')
         setSelectedTech(null)
-        alert('✅ Técnico rejeitado.')
+        showSuccessToast('Técnico rejeitado com sucesso.')
         
         // Recarregar dados
         fetchPendingTechnicians()
       } catch (error: any) {
         console.error('❌ Erro ao rejeitar técnico:', error.response?.data || error.message)
-        alert(`Erro ao rejeitar técnico: ${error.response?.data?.detail || error.message}`)
+        const errorMessage = handleApiError(error)
+        showErrorToast(`Erro ao rejeitar técnico: ${errorMessage}`)
       }
     } catch (error) {
       console.error('❌ Erro ao rejeitar técnico:', error)
-      alert('Erro ao rejeitar técnico')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao rejeitar técnico: ${errorMessage}`)
     }
   }
 
@@ -173,12 +192,7 @@ function TechApproval() {
   }
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando solicitações de técnicos...</p>
-      </div>
-    )
+    return <LoadingSpinner size="large" message="Carregando solicitações de técnicos..." fullScreen={false} />
   }
 
   return (
@@ -186,11 +200,42 @@ function TechApproval() {
       <div className="section-header">
         <h2>👥 Aprovação de Técnicos</h2>
         <div className="section-actions">
-          <button className="action-btn primary" onClick={fetchPendingTechnicians}>
+          <button 
+            className="action-btn primary" 
+            onClick={fetchPendingTechnicians}
+            disabled={loading}
+          >
             🔄 Atualizar
           </button>
         </div>
       </div>
+
+      {error && !loading && (
+        <div className="error-message" style={{ 
+          padding: '1rem', 
+          backgroundColor: '#fee2e2', 
+          border: '1px solid #ef4444', 
+          borderRadius: '6px',
+          color: '#991b1b',
+          marginBottom: '1rem'
+        }}>
+          ❌ {error}
+          <button 
+            onClick={fetchPendingTechnicians}
+            style={{
+              marginLeft: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Tentar Novamente
+          </button>
+        </div>
+      )}
 
       <div className="approval-stats">
         <div className="stat-card">

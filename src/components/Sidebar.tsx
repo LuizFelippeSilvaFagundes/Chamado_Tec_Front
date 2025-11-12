@@ -1,8 +1,7 @@
 import './Sidebar.css'
 import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { changePassword } from '../api/api'
+import { changePassword, getApiUrl } from '../api/api'
 import AvatarUpload from './AvatarUpload'
 import NotificationCenter from './NotificationCenter'
 
@@ -27,7 +26,6 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [currentPwdVisible, setCurrentPwdVisible] = useState(false)
   const popoverRef = useRef<HTMLDivElement | null>(null)
-  const navigate = useNavigate()
 
   const handleAvatarUpdate = (newAvatarUrl: string | null) => {
     // O contexto já foi atualizado pelo AvatarUpload, apenas força re-render se necessário
@@ -107,7 +105,7 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
           <button className="avatar-button" onClick={() => setShowAccountModal(true)}>
             {userAvatarUrl ? (
               <img 
-                src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                src={`${getApiUrl()}${userAvatarUrl}`}
                 alt="Avatar"
                 className="user-avatar"
                 style={{
@@ -151,7 +149,7 @@ function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
             <div className="profile-avatar-row">
               {userAvatarUrl ? (
                 <img 
-                  src={`http://127.0.0.1:8000${userAvatarUrl}`}
+                  src={`${getApiUrl()}${userAvatarUrl}`}
                   alt="Avatar"
                   className="profile-avatar-circle"
                   style={{

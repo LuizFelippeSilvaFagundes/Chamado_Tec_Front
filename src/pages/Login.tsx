@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
 import '../components/Login.css'
 
 export default function Login() {
@@ -30,7 +31,7 @@ export default function Login() {
     try {
       console.log('🔐 Tentativa de login:', { username, password })
       
-      const res = await fetch('http://127.0.0.1:8000/login', {
+      const res = await fetch(`${getApiUrl()}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ export default function Login() {
         login(data.access_token, userData)
       } else {
         // Se não, busca os dados do usuário separadamente
-        const userRes = await fetch('http://127.0.0.1:8000/me', {
+        const userRes = await fetch(`${getApiUrl()}/me`, {
           headers: {
             'Authorization': `Bearer ${data.access_token}`
           }

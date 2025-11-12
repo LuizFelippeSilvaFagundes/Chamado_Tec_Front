@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
 import { getSLAMetrics, getSLATickets, getSLATechnicianPerformance } from '../../api/api'
+import LoadingSpinner from '../LoadingSpinner'
 
 interface SLAMetrics {
   overallCompliance: number
@@ -39,10 +42,12 @@ interface SLATicket {
 
 function SLAMonitoring() {
   const { token } = useAuth()
+  const { showError: showErrorToast } = useToast()
   const [slaMetrics, setSlaMetrics] = useState<SLAMetrics | null>(null)
   const [technicianPerformance, setTechnicianPerformance] = useState<TechnicianPerformance[]>([])
   const [slaTickets, setSlaTickets] = useState<SLATicket[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [refreshInterval, setRefreshInterval] = useState(30)
   const [autoRefresh, setAutoRefresh] = useState(true)
 
@@ -70,13 +75,19 @@ function SLAMonitoring() {
   const fetchSLAData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        console.error('❌ Token não disponível')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
         return
       }
 
       console.log('⏱️ Buscando dados de SLA da API...')
+      
+      let hasError = false
       
       // Buscar métricas de SLA
       try {
@@ -101,6 +112,7 @@ function SLAMonitoring() {
         }
       } catch (error: any) {
         console.error('❌ Erro ao buscar métricas de SLA:', error.response?.data || error.message)
+        hasError = true
         // Se não conseguir buscar métricas, inicializar com valores zerados
         setSlaMetrics({
           overallCompliance: 0,
@@ -135,6 +147,7 @@ function SLAMonitoring() {
         console.log('✅ Performance dos técnicos carregada:', techniciansData)
       } catch (error: any) {
         console.error('❌ Erro ao buscar performance dos técnicos:', error.response?.data || error.message)
+        hasError = true
         setTechnicianPerformance([])
       }
 
@@ -165,11 +178,22 @@ function SLAMonitoring() {
         console.log('✅ Tickets com SLA carregados:', slaTicketsData)
       } catch (error: any) {
         console.error('❌ Erro ao buscar tickets com SLA:', error.response?.data || error.message)
+        hasError = true
         setSlaTickets([])
+      }
+
+      // Se houver erro em todas as chamadas, mostrar mensagem
+      if (hasError && !slaMetrics && technicianPerformance.length === 0 && slaTickets.length === 0) {
+        const errorMessage = 'Erro ao carregar dados de SLA. Alguns dados podem estar indisponíveis.'
+        showErrorToast(errorMessage)
+        setError(errorMessage)
       }
 
     } catch (error) {
       console.error('❌ Erro geral ao buscar dados de SLA:', error)
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar dados de SLA: ${errorMessage}`)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -220,19 +244,67 @@ function SLAMonitoring() {
   }
 
   if (loading) {
+    return <LoadingSpinner size="large" message="Carregando monitoramento de SLA..." fullScreen={false} />
+  }
+
+  if (!slaMetrics && error) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando monitoramento de SLA...</p>
+      <div className="error-state" style={{ 
+        padding: '2rem', 
+        textAlign: 'center', 
+        maxWidth: '600px', 
+        margin: '2rem auto' 
+      }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>❌ Erro ao carregar dados de SLA</h3>
+        <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{error}</p>
+        <button 
+          onClick={fetchSLAData}
+          style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem 1.5rem', 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '6px', 
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500'
+          }}
+        >
+          🔄 Tentar Novamente
+        </button>
       </div>
     )
   }
 
   if (!slaMetrics) {
     return (
-      <div className="error-state">
-        <h3>Erro ao carregar dados de SLA</h3>
-        <p>Não foi possível carregar as informações de SLA e produtividade.</p>
+      <div className="error-state" style={{ 
+        padding: '2rem', 
+        textAlign: 'center', 
+        maxWidth: '600px', 
+        margin: '2rem auto' 
+      }}>
+        <h3 style={{ color: '#6b7280', marginBottom: '1rem' }}>Nenhum dado disponível</h3>
+        <p style={{ color: '#9ca3af', marginBottom: '1rem' }}>
+          Não foi possível carregar as informações de SLA e produtividade.
+        </p>
+        <button 
+          onClick={fetchSLAData}
+          style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem 1.5rem', 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '6px', 
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500'
+          }}
+        >
+          🔄 Tentar Novamente
+        </button>
       </div>
     )
   }

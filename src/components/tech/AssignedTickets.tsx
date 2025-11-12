@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { handleApiError } from '../../utils/errorHandler'
 import { formatDateTime, formatDateOnly, isDateOverdue } from '../../utils/dateUtils'
 import { getAdminAssignedTickets, updateTicketStatus } from '../../api/api'
 import AttachmentViewer from '../AttachmentViewer'
+import LoadingSpinner from '../LoadingSpinner'
 import './AssignedTickets.css'
 
 interface Ticket {
@@ -43,13 +46,13 @@ const priorityConfig = {
 
 function AssignedTickets() {
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
@@ -65,11 +68,6 @@ function AssignedTickets() {
   useEffect(() => {
     filterTickets()
   }, [filters, tickets])
-
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({type, message})
-    setTimeout(() => setNotification(null), 3000)
-  }
 
   const filterTickets = () => {
     let filtered = [...tickets]
@@ -101,9 +99,14 @@ function AssignedTickets() {
   const fetchAssignedTickets = async () => {
     try {
       setLoading(true)
+      setError(null)
       
       if (!token) {
-        throw new Error('Token não encontrado')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        setError(errorMsg)
+        setLoading(false)
+        return
       }
 
       // Buscar tickets atribuídos pelo admin ao técnico atual
@@ -136,8 +139,9 @@ function AssignedTickets() {
       setFilteredTickets(formattedTickets)
     } catch (error: any) {
       console.error('❌ Erro ao buscar tickets atribuídos pelo admin:', error.response?.data || error.message)
-      setError('Erro ao carregar chamados atribuídos pelo admin')
-      showNotification('error', 'Erro ao carregar chamados atribuídos pelo admin')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao carregar chamados: ${errorMessage}`)
+      setError(errorMessage)
       setTickets([])
       setFilteredTickets([])
     } finally {
@@ -159,7 +163,9 @@ function AssignedTickets() {
   const handleStatusChange = async (ticketId: number, newStatus: string) => {
     try {
       if (!token) {
-        throw new Error('Token não encontrado')
+        const errorMsg = 'Token não disponível. Faça login novamente.'
+        showErrorToast(errorMsg)
+        return
       }
 
       await updateTicketStatus(token, ticketId, newStatus)
@@ -167,39 +173,51 @@ function AssignedTickets() {
       // Recarregar tickets
       await fetchAssignedTickets()
       
-      showNotification('success', `✅ Status atualizado para: ${newStatus}`)
+      const statusLabel = statusConfig[newStatus as keyof typeof statusConfig]?.label || newStatus
+      showSuccessToast(`Status atualizado para: ${statusLabel}`)
       closeModal()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
-      showNotification('error', '❌ Erro ao atualizar status.')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao atualizar status: ${errorMessage}`)
     }
   }
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando chamados atribuídos...</p>
-      </div>
-    )
+    return <LoadingSpinner size="large" message="Carregando chamados atribuídos..." fullScreen={false} />
   }
 
   return (
     <div className="assigned-tickets">
-      {notification && (
-        <div className={`notification ${notification.type}`}>
-          {notification.message}
-        </div>
-      )}
-      
       <div className="section-header">
         <h1>🎫 Meus Chamados</h1>
         <p className="section-subtitle">Chamados atribuídos pelo administrador</p>
       </div>
 
-      {error && (
-        <div className="error-message">
+      {error && !loading && (
+        <div className="error-message" style={{ 
+          padding: '1rem', 
+          backgroundColor: '#fee2e2', 
+          border: '1px solid #ef4444', 
+          borderRadius: '6px',
+          color: '#991b1b',
+          marginBottom: '1rem'
+        }}>
           ❌ {error}
+          <button 
+            onClick={fetchAssignedTickets}
+            style={{
+              marginLeft: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Tentar Novamente
+          </button>
         </div>
       )}
 

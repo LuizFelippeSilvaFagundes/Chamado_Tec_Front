@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
 import '../components/TechRegister.css'
 
 export default function TechRegister() {
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -20,7 +24,6 @@ export default function TechRegister() {
     notes: ''
   })
   
-  const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
@@ -65,43 +68,43 @@ export default function TechRegister() {
 
   const validateForm = () => {
     if (!formData.username.trim()) {
-      setErrorMessage('Nome de usuário é obrigatório.')
+      showErrorToast('Nome de usuário é obrigatório.')
       return false
     }
     if (!formData.email.trim()) {
-      setErrorMessage('E-mail é obrigatório.')
+      showErrorToast('E-mail é obrigatório.')
       return false
     }
     if (!formData.password.trim()) {
-      setErrorMessage('Senha é obrigatória.')
+      showErrorToast('Senha é obrigatória.')
       return false
     }
     if (formData.password !== formData.confirmPassword) {
-      setErrorMessage('As senhas não coincidem.')
+      showErrorToast('As senhas não coincidem.')
       return false
     }
     if (formData.password.length < 6) {
-      setErrorMessage('A senha deve ter pelo menos 6 caracteres.')
+      showErrorToast('A senha deve ter pelo menos 6 caracteres.')
       return false
     }
     if (!formData.full_name.trim()) {
-      setErrorMessage('Nome completo é obrigatório.')
+      showErrorToast('Nome completo é obrigatório.')
       return false
     }
     if (!formData.employee_id.trim()) {
-      setErrorMessage('ID do funcionário é obrigatório.')
+      showErrorToast('ID do funcionário é obrigatório.')
       return false
     }
     if (!formData.department) {
-      setErrorMessage('Departamento é obrigatório.')
+      showErrorToast('Departamento é obrigatório.')
       return false
     }
     if (formData.specialty.length === 0) {
-      setErrorMessage('Selecione pelo menos uma especialidade.')
+      showErrorToast('Selecione pelo menos uma especialidade.')
       return false
     }
     if (!formData.phone.trim()) {
-      setErrorMessage('Telefone é obrigatório.')
+      showErrorToast('Telefone é obrigatório.')
       return false
     }
     return true
@@ -114,7 +117,6 @@ export default function TechRegister() {
 
     try {
       setLoading(true)
-      setErrorMessage('')
 
       const techData = {
         username: formData.username,
@@ -130,7 +132,7 @@ export default function TechRegister() {
 
       console.log('Dados do técnico:', techData)
 
-      const res = await fetch('http://127.0.0.1:8000/tech-register', {
+      const res = await fetch(`${getApiUrl()}/tech-register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -139,15 +141,17 @@ export default function TechRegister() {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Erro ao cadastrar técnico')
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = handleApiError({ ...errorData, status: res.status })
+        throw new Error(errorMessage)
       }
 
-      alert('Cadastro realizado com sucesso! Você já pode fazer login como técnico.')
-      navigate('/login')
+      showSuccessToast('Cadastro realizado com sucesso! Você já pode fazer login como técnico.')
+      setTimeout(() => navigate('/login'), 2000)
     } catch (error) {
       console.error('Erro no cadastro:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Erro ao realizar cadastro')
+      const errorMessage = handleApiError(error)
+      showErrorToast(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -377,11 +381,6 @@ export default function TechRegister() {
             </div>
           </div>
 
-          {errorMessage && (
-            <div className="error-message">
-              ❌ {errorMessage}
-            </div>
-          )}
 
           <div className="form-actions">
             <button 

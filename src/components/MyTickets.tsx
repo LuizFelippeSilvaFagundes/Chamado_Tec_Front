@@ -6,6 +6,7 @@ import LoadingSpinner from './LoadingSpinner'
 import SkeletonLoader from './SkeletonLoader'
 import { useToast } from '../contexts/ToastContext'
 import { handleApiError } from '../utils/errorHandler'
+import { getApiUrl } from '../api/api'
 import './MyTickets.css'
 
 interface Attachment {
@@ -91,7 +92,7 @@ function MyTickets() {
         }
 
         console.log('🔍 Buscando tickets para usuário:', userData.username)
-        const res = await fetch(`http://127.0.0.1:8000/tickets/me/${userData.username}`, {
+        const res = await fetch(`${getApiUrl()}/tickets/me/${userData.username}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -283,7 +284,7 @@ function MyTickets() {
                         <div className="tech-info">
                           {ticket.assigned_tech.avatar_url ? (
                             <img 
-                              src={`http://127.0.0.1:8000${ticket.assigned_tech.avatar_url}`}
+                              src={`${getApiUrl()}${ticket.assigned_tech.avatar_url}`}
                               alt={ticket.assigned_tech.full_name}
                               className="tech-avatar"
                             />

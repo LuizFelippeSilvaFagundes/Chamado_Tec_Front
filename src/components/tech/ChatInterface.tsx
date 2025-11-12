@@ -22,7 +22,7 @@ interface ChatTicket {
 }
 
 function ChatInterface() {
-  const { token, user } = useAuth()
+  const { user } = useAuth()
   const [tickets, setTickets] = useState<ChatTicket[]>([])
   const [selectedTicket, setSelectedTicket] = useState<ChatTicket | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -192,10 +192,6 @@ function ChatInterface() {
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
   if (loading) {

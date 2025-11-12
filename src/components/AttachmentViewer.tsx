@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { downloadTicketAttachment, deleteTicketAttachment } from '../api/api'
+import { downloadTicketAttachment, deleteTicketAttachment, getApiUrl } from '../api/api'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { handleApiError } from '../utils/errorHandler'
 import './AttachmentViewer.css'
 
 export interface Attachment {
@@ -26,6 +28,7 @@ function AttachmentViewer({
   onAttachmentDeleted
 }: AttachmentViewerProps) {
   const { token } = useAuth()
+  const { showError: showErrorToast, showSuccess: showSuccessToast } = useToast()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
 
@@ -72,7 +75,7 @@ function AttachmentViewer({
       if (attachment.url.startsWith('http')) {
         return attachment.url
       }
-      return `http://127.0.0.1:8000${attachment.url}`
+      return `${getApiUrl()}${attachment.url}`
     }
     return ''
   }
@@ -96,7 +99,7 @@ function AttachmentViewer({
         }
       } else {
         // Se não tiver URL, tentar construir URL de download
-        const downloadUrl = `http://127.0.0.1:8000/tickets/${ticketId}/attachments/download/${attachment.filename}`
+        const downloadUrl = `${getApiUrl()}/tickets/${ticketId}/attachments/download/${attachment.filename}`
         window.open(downloadUrl, '_blank')
       }
     } catch (error) {
@@ -122,9 +125,11 @@ function AttachmentViewer({
       if (onAttachmentDeleted) {
         onAttachmentDeleted()
       }
+      showSuccessToast('Anexo removido com sucesso!')
     } catch (error) {
       console.error('Erro ao deletar anexo:', error)
-      alert('Erro ao deletar anexo. Tente novamente.')
+      const errorMessage = handleApiError(error)
+      showErrorToast(`Erro ao remover anexo: ${errorMessage}`)
     } finally {
       setDeleting(null)
     }

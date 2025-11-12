@@ -1,7 +1,8 @@
 import axios from "axios";
 
-// URL da API - usa variável de ambiente ou padrão para desenvolvimento
-const API_URL = import.meta.env.VITE_API_URL || "https://chamado-tec-back.onrender.com";
+// URL da API - usa variável de ambiente ou padrão para produção
+// Se VITE_API_URL não estiver definida, usa a URL do Render
+const API_URL = import.meta.env.VITE_API_URL || "https://chamado-tec-backend.onrender.com";
 
 // API base sem autenticação
 export const api = axios.create({

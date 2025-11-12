@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { getApiUrl } from '../api/api'
 import AvatarUpload from './AvatarUpload'
 import './Header.css'
 
@@ -14,8 +15,6 @@ function Header({ userName, onLogout }: HeaderProps) {
   const { user } = useAuth()
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(null)
   const [avatarKey, setAvatarKey] = useState(Date.now())
-
-  const API_URL = 'http://127.0.0.1:8000'
 
   // Carregar avatar ao montar e quando user mudar
   useEffect(() => {
@@ -53,7 +52,7 @@ function Header({ userName, onLogout }: HeaderProps) {
                 {avatarUrl ? (
                   <img 
                     key={avatarKey}
-                    src={`${API_URL}${avatarUrl}?t=${avatarKey}`} 
+                    src={`${getApiUrl()}${avatarUrl}?t=${avatarKey}`} 
                     alt="Avatar" 
                     className="user-avatar-img"
                   />
